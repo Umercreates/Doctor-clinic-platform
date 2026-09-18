@@ -6,37 +6,55 @@ import { DataTable } from "@/components/dashboard/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { formatTime12h } from "@/lib/dates";
+import { Alert } from "@/components/ui/Alert";
+import { formatTime12h, todayIso } from "@/lib/dates";
 import { dashboardRoutes, routes } from "@/lib/routes";
-import { dashboardStats, demoAppointments, appointmentStatusMeta } from "@/data/dashboard";
+import { appointmentStatusMeta } from "@/data/dashboard";
+import { requirePageScope } from "@/server/auth/pageGuards";
+import { getDashboardSummary } from "@/server/services/appointmentService";
+import { countPatientsForScope } from "@/server/services/patientService";
 import { listDoctors } from "@/server/repositories/doctorsRepository";
-import { listServices } from "@/server/repositories/servicesRepository";
 
 export const metadata = { title: "Overview" };
+export const dynamic = "force-dynamic";
 
-export default async function DashboardOverviewPage() {
-  const [doctors, services] = await Promise.all([listDoctors(), listServices()]);
-  const doctorName = (id) => doctors.find((d) => d.id === id)?.name || "—";
-  const serviceName = (id) => services.find((s) => s.id === id)?.name || "—";
-  const today = demoAppointments.filter((a) => a.date === "Today");
+export default async function DashboardOverviewPage({ searchParams }) {
+  const { denied } = await searchParams;
+  const { user, scope } = await requirePageScope("appointments:read", dashboardRoutes.root);
+  const today = todayIso();
+
+  const [summary, patientCount, doctors] = await Promise.all([
+    getDashboardSummary(scope, today),
+    countPatientsForScope(scope),
+    listDoctors(),
+  ]);
+  const visibleDoctors = scope.all ? doctors : doctors.filter((d) => d.id === scope.doctorId);
+
+  const stats = [
+    { id: "today", label: "Appointments today", value: String(summary.today), change: "Active bookings", trend: "flat" },
+    { id: "pending", label: "Pending requests", value: String(summary.byStatus.pending), change: summary.byStatus.pending ? "Needs review" : "All reviewed", trend: summary.byStatus.pending ? "attention" : "up" },
+    { id: "confirmed", label: "Confirmed", value: String(summary.byStatus.confirmed), change: `${summary.byStatus.completed} completed`, trend: "up" },
+    { id: "patients", label: scope.all ? "Patients" : "My patients", value: String(patientCount), change: "On record", trend: "flat" },
+  ];
 
   const columns = [
     { key: "time", label: "Time", render: (row) => <span className="font-medium text-slate-900">{formatTime12h(row.time)}</span> },
-    { key: "patient", label: "Patient" },
-    { key: "doctorId", label: "Doctor", render: (row) => doctorName(row.doctorId) },
-    { key: "serviceId", label: "Service", render: (row) => serviceName(row.serviceId) },
+    { key: "patient", label: "Patient", render: (row) => row.patient?.fullName },
+    { key: "doctor", label: "Doctor", render: (row) => row.doctor?.name },
+    { key: "service", label: "Service", render: (row) => row.service?.name },
     {
       key: "status",
       label: "Status",
-      render: (row) => <Badge variant={appointmentStatusMeta[row.status].variant}>{appointmentStatusMeta[row.status].label}</Badge>,
+      render: (row) => <Badge variant={appointmentStatusMeta[row.status]?.variant || "neutral"}>{appointmentStatusMeta[row.status]?.label || row.status}</Badge>,
     },
   ];
 
   return (
     <>
       <PageTitle
-        title="Overview"
-        description="A snapshot of today at the practice."
+        title={`Welcome back, ${user.name.split(" ")[0]}`}
+        description={scope.all ? "A snapshot of today at the practice." : "A snapshot of your day."}
+        demo={false}
         actions={
           <Button href={routes.appointments} size="sm" leftIcon={CalendarPlus}>
             New booking
@@ -44,8 +62,14 @@ export default async function DashboardOverviewPage() {
         }
       />
 
+      {denied === "1" && (
+        <Alert tone="warning" className="mb-6" title="Access restricted">
+          Your account does not have permission to open that section.
+        </Alert>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {dashboardStats.map((stat) => (
+        {stats.map((stat) => (
           <StatCard key={stat.id} {...stat} />
         ))}
       </div>
@@ -59,21 +83,21 @@ export default async function DashboardOverviewPage() {
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
-          <DataTable columns={columns} rows={today} caption="Appointments scheduled for today" />
+          <DataTable columns={columns} rows={summary.todayAppointments} caption="Appointments scheduled for today" emptyMessage="No appointments scheduled for today." />
         </div>
 
         <div className="space-y-6">
           <Card className="p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Doctors on duty</h2>
+            <h2 className="text-lg font-semibold text-slate-900">{scope.all ? "Doctors" : "Your profile"}</h2>
             <ul className="mt-4 divide-y divide-slate-100">
-              {doctors.map((doctor) => (
+              {visibleDoctors.map((doctor) => (
                 <li key={doctor.id} className="flex items-center justify-between gap-3 py-3">
                   <div>
                     <p className="text-sm font-medium text-slate-900">{doctor.name}</p>
                     <p className="text-xs text-slate-500">{doctor.role}</p>
                   </div>
-                  <Badge variant="success" dot>
-                    Available
+                  <Badge variant={doctor.acceptingNewPatients ? "success" : "neutral"} dot>
+                    {doctor.acceptingNewPatients ? "Accepting patients" : "Not accepting"}
                   </Badge>
                 </li>
               ))}
@@ -85,9 +109,9 @@ export default async function DashboardOverviewPage() {
               Pending requests
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              {demoAppointments.filter((a) => a.status === "pending").length} booking requests are waiting for confirmation.
+              {summary.byStatus.pending} booking request{summary.byStatus.pending === 1 ? " is" : "s are"} waiting for confirmation.
             </p>
-            <Button href={dashboardRoutes.appointments} variant="secondary" size="sm" className="mt-4" rightIcon={ArrowRight}>
+            <Button href={`${dashboardRoutes.appointments}?status=pending`} variant="secondary" size="sm" className="mt-4" rightIcon={ArrowRight}>
               Review requests
             </Button>
           </Card>

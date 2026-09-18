@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { DashboardHeader } from "./DashboardHeader";
+import { ToastProvider } from "@/components/ui/Toast";
 
 /**
  * Responsive dashboard frame: fixed sidebar (drawer on mobile) + header + content.
+ * `user` is the safe session user resolved by the server layout.
  */
-export function DashboardShell({ children }) {
+export function DashboardShell({ user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
 
@@ -27,14 +29,16 @@ export function DashboardShell({ children }) {
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-dvh bg-surface-muted">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex min-h-dvh flex-col lg:pl-72">
-        <DashboardHeader onOpenSidebar={() => setSidebarOpen(true)} />
-        <main id="main-content" className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto w-full max-w-7xl animate-page-in">{children}</div>
-        </main>
+    <ToastProvider>
+      <div className="min-h-dvh bg-surface-muted">
+        <Sidebar user={user} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex min-h-dvh flex-col lg:pl-72">
+          <DashboardHeader user={user} onOpenSidebar={() => setSidebarOpen(true)} />
+          <main id="main-content" className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <div className="mx-auto w-full max-w-7xl animate-page-in">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }

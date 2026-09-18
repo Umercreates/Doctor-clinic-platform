@@ -112,15 +112,15 @@ export function Footer({ services = [] }) {
               <dl className="space-y-1">
                 {openDays.map((day) => (
                   <div key={day.day} className="flex justify-between gap-4">
-                    <dt className="w-24 shrink-0">{day.label.slice(0, 3)}</dt>
-                    <dd className="tabular-nums">
+                    <dt className="w-10 shrink-0">{day.label.slice(0, 3)}</dt>
+                    <dd className="whitespace-nowrap tabular-nums">
                       {formatTime12h(day.open)} – {formatTime12h(day.close)}
                     </dd>
                   </div>
                 ))}
                 {closedDays.map((day) => (
                   <div key={day.day} className="flex justify-between gap-4">
-                    <dt className="w-24 shrink-0">{day.label.slice(0, 3)}</dt>
+                    <dt className="w-10 shrink-0">{day.label.slice(0, 3)}</dt>
                     <dd>Closed</dd>
                   </div>
                 ))}

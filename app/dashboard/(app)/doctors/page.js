@@ -6,18 +6,23 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { routes } from "@/lib/routes";
 import { listDoctors } from "@/server/repositories/doctorsRepository";
+import { requirePagePermission } from "@/server/auth/pageGuards";
+import { dashboardRoutes } from "@/lib/routes";
 import { listServices } from "@/server/repositories/servicesRepository";
 
 export const metadata = { title: "Doctors" };
+export const dynamic = "force-dynamic";
 
 export default async function DashboardDoctorsPage() {
-  const [doctors, services] = await Promise.all([listDoctors(), listServices()]);
+  await requirePagePermission("doctors:read", dashboardRoutes.doctors);
+  const [doctors, services] = await Promise.all([listDoctors({ includeInactive: true }), listServices()]);
 
   return (
     <>
       <PageTitle
         title="Doctors"
-        description="Profiles shown on the public website. Edit names, roles, biographies, and the services each doctor offers."
+        description="Profiles shown on the public website. Editing arrives in the dashboard phase; the API already supports it."
+        demo={false}
         actions={
           <Button size="sm" leftIcon={Plus}>
             Add doctor

@@ -3,8 +3,11 @@ import { PageTitle } from "@/components/dashboard/PageTitle";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { Button } from "@/components/ui/Button";
 import { contentBlocks } from "@/data/dashboard";
+import { requirePagePermission } from "@/server/auth/pageGuards";
+import { dashboardRoutes } from "@/lib/routes";
 
 export const metadata = { title: "Website content" };
+export const dynamic = "force-dynamic";
 
 const columns = [
   { key: "label", label: "Section", render: (row) => <span className="font-medium text-slate-900">{row.label}</span> },
@@ -23,7 +26,8 @@ const columns = [
   },
 ];
 
-export default function DashboardContentPage() {
+export default async function DashboardContentPage() {
+  await requirePagePermission("content:write", dashboardRoutes.content);
   return (
     <>
       <PageTitle title="Website content" description="Editable text blocks that feed the public website." />

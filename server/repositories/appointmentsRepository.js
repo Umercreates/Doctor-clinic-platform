@@ -1,46 +1,26 @@
 /**
- * Appointments repository.
- *
- * Demo phase: writes to an in-memory store. Backend phase: same interface
- * backed by the `appointments` table (with the exclusion constraint that
- * prevents double booking at the database level).
+ * appointmentsRepository facade. Chooses the PostgreSQL implementation when DATABASE_URL is
+ * configured, otherwise the bundled demo implementation. Callers import from
+ * this module only, so the data source can change without touching them.
  */
-import { getMemoryStore } from "@/lib/database/memoryStore";
-import { generateReference } from "@/lib/utils";
+import { isDatabaseConfigured } from "@/lib/database";
+import * as pg from "./pg/appointmentsRepository";
+import * as demo from "./demo/appointmentsRepository";
 
-export const APPOINTMENT_STATUS = {
-  PENDING: "pending",
-  CONFIRMED: "confirmed",
-  CANCELLED: "cancelled",
-  COMPLETED: "completed",
-  NO_SHOW: "no_show",
-};
+const impl = isDatabaseConfigured() ? pg : demo;
 
-const BLOCKING_STATUSES = new Set([APPOINTMENT_STATUS.PENDING, APPOINTMENT_STATUS.CONFIRMED]);
+export const APPOINTMENT_STATUS = pg.APPOINTMENT_STATUS;
+export const APPOINTMENT_STATUSES = pg.APPOINTMENT_STATUSES;
+export const BLOCKING_STATUSES = pg.BLOCKING_STATUSES;
 
-export async function listBookedTimes({ doctorId, date }) {
-  const store = getMemoryStore();
-  return store.appointments
-    .filter((a) => a.doctorId === doctorId && a.date === date && BLOCKING_STATUSES.has(a.status))
-    .map((a) => ({ time: a.time, durationMinutes: a.durationMinutes }));
-}
-
-export async function createAppointment(input) {
-  const store = getMemoryStore();
-  const now = new Date().toISOString();
-  const appointment = {
-    id: `apt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
-    reference: generateReference("DOC"),
-    status: APPOINTMENT_STATUS.PENDING,
-    createdAt: now,
-    updatedAt: now,
-    ...input,
-  };
-  store.appointments.push(appointment);
-  return appointment;
-}
-
-export async function getAppointmentByReference(reference) {
-  const store = getMemoryStore();
-  return store.appointments.find((a) => a.reference === reference) || null;
-}
+export const listBookedTimes = (...args) => impl.listBookedTimes(...args);
+export const createAppointment = (...args) => impl.createAppointment(...args);
+export const bookAppointment = (...args) => impl.bookAppointment(...args);
+export const getAppointmentById = (...args) => impl.getAppointmentById(...args);
+export const getAppointmentByReference = (...args) => impl.getAppointmentByReference(...args);
+export const listAppointments = (...args) => impl.listAppointments(...args);
+export const countAppointmentsByStatus = (...args) => impl.countAppointmentsByStatus(...args);
+export const countAppointmentsOnDate = (...args) => impl.countAppointmentsOnDate(...args);
+export const updateAppointment = (...args) => impl.updateAppointment(...args);
+export const listBookedTimesInRange = (...args) => impl.listBookedTimesInRange(...args);
+export const rescheduleAppointment = (...args) => impl.rescheduleAppointment(...args);

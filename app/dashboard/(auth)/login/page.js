@@ -1,15 +1,32 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
+import { Alert } from "@/components/ui/Alert";
 import { LoginForm } from "@/components/dashboard/LoginForm";
 import { routes } from "@/lib/routes";
 import { clinic } from "@/data/clinic";
+import { getCurrentUser } from "@/server/auth/currentUser";
+import { safeNextPath } from "@/server/auth/pageGuards";
+import { isDatabaseConfigured } from "@/lib/database";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata = {
   title: "Staff sign in",
 };
 
-export default function LoginPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LoginPage({ searchParams }) {
+  const { next } = await searchParams;
+  const nextPath = safeNextPath(next);
+
+  // Already signed in? Go straight to the dashboard.
+  const user = await getCurrentUser();
+  if (user) redirect(nextPath);
+
+  const authReady = isDatabaseConfigured() && isSupabaseConfigured();
+
   return (
     <main id="main-content" className="flex min-h-dvh bg-surface-muted">
       {/* Brand panel */}
@@ -40,17 +57,21 @@ export default function LoginPage() {
             </span>
             <h1 className="mt-5 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Staff sign in</h1>
             <p className="mt-2 text-sm text-slate-600">Use your clinic account to access the dashboard.</p>
+            {!authReady && (
+              <Alert tone="warning" className="mt-5" title="Sign-in not configured">
+                Set <code>DATABASE_URL</code>, <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+                <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> in <code>.env.local</code>, then run{" "}
+                <code>npm run db:setup</code> to create staff accounts in Supabase Auth.
+              </Alert>
+            )}
             <div className="mt-7">
-              <LoginForm />
+              <LoginForm nextPath={nextPath} />
             </div>
           </div>
-          <div className="mt-6 flex items-center justify-between text-sm">
+          <div className="mt-6 text-sm">
             <Link href={routes.home} className="link-underline inline-flex items-center gap-1.5 rounded-sm text-slate-600 hover:text-slate-900">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Back to website
-            </Link>
-            <Link href="/dashboard" className="link-underline rounded-sm text-brand-700">
-              Preview dashboard
             </Link>
           </div>
         </div>

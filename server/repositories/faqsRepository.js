@@ -1,14 +1,13 @@
 /**
- * FAQ repository (demo-data backed; swapped for PostgreSQL later).
+ * faqsRepository facade. Chooses the PostgreSQL implementation when DATABASE_URL is
+ * configured, otherwise the bundled demo implementation. Callers import from
+ * this module only, so the data source can change without touching them.
  */
-import { faqs, faqCategories } from "@/data/faqs";
+import { isDatabaseConfigured } from "@/lib/database";
+import * as pg from "./pg/faqsRepository";
+import * as demo from "./demo/faqsRepository";
 
-export async function listFaqs({ featuredOnly = false } = {}) {
-  return faqs
-    .filter((f) => !featuredOnly || f.featured)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-}
+const impl = isDatabaseConfigured() ? pg : demo;
 
-export async function listFaqCategories() {
-  return faqCategories;
-}
+export const listFaqs = (...args) => impl.listFaqs(...args);
+export const listFaqCategories = (...args) => impl.listFaqCategories(...args);

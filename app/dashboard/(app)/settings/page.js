@@ -4,10 +4,13 @@ import { PageTitle } from "@/components/dashboard/PageTitle";
 import { Card } from "@/components/ui/Card";
 import { settingsGroups } from "@/data/dashboard";
 import { dashboardRoutes } from "@/lib/routes";
+import { requirePagePermission } from "@/server/auth/pageGuards";
 
 export const metadata = { title: "Settings" };
+export const dynamic = "force-dynamic";
 
-export default function DashboardSettingsPage() {
+export default async function DashboardSettingsPage() {
+  await requirePagePermission("settings:write", dashboardRoutes.settings);
   return (
     <>
       <PageTitle title="Settings" description="Clinic profile, contact details, booking rules, notifications, and staff access." />

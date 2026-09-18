@@ -1,24 +1,19 @@
 /**
- * Services repository (demo-data backed; swapped for PostgreSQL later).
+ * servicesRepository facade. Chooses the PostgreSQL implementation when DATABASE_URL is
+ * configured, otherwise the bundled demo implementation. Callers import from
+ * this module only, so the data source can change without touching them.
  */
-import { services } from "@/data/services";
+import { isDatabaseConfigured } from "@/lib/database";
+import * as pg from "./pg/servicesRepository";
+import * as demo from "./demo/servicesRepository";
 
-function sortServices(list) {
-  return [...list].sort((a, b) => a.sortOrder - b.sortOrder);
-}
+const impl = isDatabaseConfigured() ? pg : demo;
 
-export async function listServices({ includeInactive = false } = {}) {
-  return sortServices(services.filter((s) => includeInactive || s.isActive));
-}
-
-export async function getServiceBySlug(slug) {
-  return services.find((s) => s.slug === slug && s.isActive) || null;
-}
-
-export async function getServiceById(id) {
-  return services.find((s) => s.id === id && s.isActive) || null;
-}
-
-export async function listServicesForDoctor(doctorId) {
-  return sortServices(services.filter((s) => s.isActive && s.doctorIds.includes(doctorId)));
-}
+export const listServices = (...args) => impl.listServices(...args);
+export const getServiceBySlug = (...args) => impl.getServiceBySlug(...args);
+export const getServiceById = (...args) => impl.getServiceById(...args);
+export const getServiceByIdOrSlug = (...args) => impl.getServiceByIdOrSlug(...args);
+export const listServicesForDoctor = (...args) => impl.listServicesForDoctor(...args);
+export const createService = (...args) => impl.createService(...args);
+export const updateService = (...args) => impl.updateService(...args);
+export const deactivateService = (...args) => impl.deactivateService(...args);

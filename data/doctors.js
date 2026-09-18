@@ -34,7 +34,7 @@ export const doctors = [
     isLead: true,
     location: "Los Angeles, California, USA",
     photo: {
-      src: "/images/doctors/dr-williams.png",
+      src: "/images/doctors/doc-williams.png",
       alt: "Portrait of Dr. Williams, primary doctor at the Doctor practice in Los Angeles",
       width: 1182,
       height: 1330,

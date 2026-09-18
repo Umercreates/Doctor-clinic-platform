@@ -1,32 +1,20 @@
 /**
- * Doctors repository.
- *
- * Currently backed by structured demo data. In the backend phase this module
- * keeps the same async interface but reads from PostgreSQL (see
- * `lib/database/schema.sql`), so callers never need to change.
+ * doctorsRepository facade. Chooses the PostgreSQL implementation when DATABASE_URL is
+ * configured, otherwise the bundled demo implementation. Callers import from
+ * this module only, so the data source can change without touching them.
  */
-import { doctors } from "@/data/doctors";
+import { isDatabaseConfigured } from "@/lib/database";
+import * as pg from "./pg/doctorsRepository";
+import * as demo from "./demo/doctorsRepository";
 
-function sortDoctors(list) {
-  return [...list].sort((a, b) => a.sortOrder - b.sortOrder);
-}
+const impl = isDatabaseConfigured() ? pg : demo;
 
-export async function listDoctors({ includeInactive = false } = {}) {
-  return sortDoctors(doctors.filter((d) => includeInactive || d.isActive));
-}
-
-export async function getDoctorBySlug(slug) {
-  return doctors.find((d) => d.slug === slug && d.isActive) || null;
-}
-
-export async function getDoctorById(id) {
-  return doctors.find((d) => d.id === id && d.isActive) || null;
-}
-
-export async function getLeadDoctor() {
-  return doctors.find((d) => d.isLead) || doctors[0] || null;
-}
-
-export async function listDoctorsByService(serviceId) {
-  return sortDoctors(doctors.filter((d) => d.isActive && d.serviceIds.includes(serviceId)));
-}
+export const listDoctors = (...args) => impl.listDoctors(...args);
+export const getDoctorBySlug = (...args) => impl.getDoctorBySlug(...args);
+export const getDoctorById = (...args) => impl.getDoctorById(...args);
+export const getDoctorByIdOrSlug = (...args) => impl.getDoctorByIdOrSlug(...args);
+export const getLeadDoctor = (...args) => impl.getLeadDoctor(...args);
+export const listDoctorsByService = (...args) => impl.listDoctorsByService(...args);
+export const createDoctor = (...args) => impl.createDoctor(...args);
+export const updateDoctor = (...args) => impl.updateDoctor(...args);
+export const deactivateDoctor = (...args) => impl.deactivateDoctor(...args);

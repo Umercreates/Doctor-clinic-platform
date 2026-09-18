@@ -33,7 +33,10 @@ export default async function DoctorsPage() {
         }
       />
 
-      <Section tone="white" aria-label="Doctor profiles">
+      <Section tone="white" aria-labelledby="doctor-profiles-heading">
+        <h2 id="doctor-profiles-heading" className="sr-only">
+          Doctor profiles
+        </h2>
         <DoctorGrid doctors={doctors} />
         <DemoNotice
           className="mt-8"

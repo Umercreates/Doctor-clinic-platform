@@ -36,7 +36,10 @@ export default async function ServicesPage() {
         }
       />
 
-      <Section tone="white" aria-label="Service list">
+      <Section tone="white" aria-labelledby="service-list-heading">
+        <h2 id="service-list-heading" className="sr-only">
+          Our services
+        </h2>
         <ServiceGrid services={services} doctors={doctors} />
         <DemoNotice className="mt-8" text="Service descriptions are general demo content and should be reviewed by the practice before launch." />
       </Section>

@@ -81,7 +81,11 @@ function WizardBody() {
     } catch (error) {
       dispatch({
         type: "SUBMIT_FAILURE",
-        error: error.message || "We could not complete your booking. Please try again.",
+        code: error.code,
+        error:
+          error.status === 0 || error.status >= 500
+            ? "Something went wrong. Please try again."
+            : error.message || "We could not complete your booking. Please try again.",
         fieldErrors: error.details,
       });
     }
@@ -133,6 +137,7 @@ function WizardBody() {
             value={state.time}
             onChange={(time) => dispatch({ type: "SET_TIME", time })}
             onChangeDate={() => goTo(STEP_INDEX.date)}
+            refreshKey={state.slotRefreshKey}
           />
         );
       case "details":
@@ -218,7 +223,7 @@ function WizardBody() {
             )}
 
             {state.submission.status === "error" && state.submission.error && (
-              <Alert tone="error" className="mb-6" title="Booking not completed">
+              <Alert tone={step.id === "time" ? "warning" : "error"} className="mb-6" title={step.id === "time" ? "This slot is no longer available" : "Booking not completed"}>
                 {state.submission.error}
               </Alert>
             )}

@@ -5,11 +5,15 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { listServices } from "@/server/repositories/servicesRepository";
+import { requirePagePermission } from "@/server/auth/pageGuards";
+import { dashboardRoutes } from "@/lib/routes";
 
 export const metadata = { title: "Services" };
+export const dynamic = "force-dynamic";
 
 export default async function DashboardServicesPage() {
-  const services = await listServices();
+  await requirePagePermission("services:read", dashboardRoutes.services);
+  const services = await listServices({ includeInactive: true });
 
   const columns = [
     {
@@ -44,6 +48,7 @@ export default async function DashboardServicesPage() {
       <PageTitle
         title="Services"
         description="Services offered on the website and in the booking flow."
+        demo={false}
         actions={
           <Button size="sm" leftIcon={Plus}>
             Add service

@@ -1,20 +1,25 @@
-import { ApiError } from "@/server/http/errors";
-import { readJson, withErrorHandling } from "@/server/http/response";
+import { NextResponse } from "next/server";
+import { fail, readJson } from "@/server/http/response";
+import { createCookieJar, createSupabaseRouteClient } from "@/lib/supabase/server";
+import { getClientIp } from "@/server/auth/currentUser";
+import { login, assertAuthConfigured } from "@/server/services/authService";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Staff sign-in. Credentials, password hashing, and sessions are implemented
- * in the backend phase. Until then the endpoint validates the request shape
- * and responds with a clear 501 so the login UI can show a proper message.
+ * POST /api/v1/auth/login  { email, password }
+ * Authenticates through Supabase Auth; the Supabase session cookies are set
+ * on this response. Returns only safe user fields.
  */
-export const POST = withErrorHandling(async (request) => {
-  const body = await readJson(request);
-  if (!body?.email || !body?.password) {
-    throw ApiError.validation({
-      ...(body?.email ? {} : { email: "Email address is required." }),
-      ...(body?.password ? {} : { password: "Password is required." }),
-    });
+export async function POST(request) {
+  try {
+    assertAuthConfigured();
+    const body = await readJson(request);
+    const jar = createCookieJar();
+    const supabase = createSupabaseRouteClient(request, jar);
+    const result = await login(body, { supabase, ipAddress: getClientIp(request) });
+    return jar.applyTo(NextResponse.json({ success: true, data: result }));
+  } catch (error) {
+    return fail(error);
   }
-  throw ApiError.notImplemented("Staff sign-in is not enabled on this environment yet.");
-});
+}

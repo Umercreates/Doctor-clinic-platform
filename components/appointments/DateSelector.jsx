@@ -1,17 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { addDays, addMonths, buildMonthGrid, formatMonthYear, isSameDay, parseIsoDate, startOfMonth, toIsoDate } from "@/lib/dates";
 import { APPOINTMENT_LIMITS } from "@/lib/validation/appointment";
 import { hasBookableTime } from "@/lib/booking";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 /**
- * Step 3: month calendar. Disables past days, days beyond the booking window,
- * and weekdays the doctor does not work. Supports arrow-key navigation.
+ * Step 3: month calendar.
+ *
+ * Days are enabled only when the availability API reports at least one open
+ * slot (schedule, blocked dates and existing bookings all considered). While
+ * the month's availability loads, the weekly schedule is used as a fast
+ * approximation and the grid is marked busy. Supports arrow-key navigation.
  */
 export function DateSelector({ doctor, service, value, onChange }) {
   const today = useMemo(() => {
@@ -20,18 +25,44 @@ export function DateSelector({ doctor, service, value, onChange }) {
     return d;
   }, []);
   const maxDate = useMemo(() => addDays(today, APPOINTMENT_LIMITS.maxDaysAhead), [today]);
-  const workingDays = useMemo(() => new Set(doctor?.schedule.map((s) => s.day) || []), [doctor]);
 
   const [month, setMonth] = useState(() => startOfMonth(value ? parseIsoDate(value) : today));
   const [focusedIso, setFocusedIso] = useState(value || toIsoDate(today));
+  // { key, days: Set<string> | null (unknown), error }
+  const [availableDays, setAvailableDays] = useState({ key: null, days: null, error: "" });
 
   const cells = useMemo(() => buildMonthGrid(month), [month]);
   const canGoPrev = startOfMonth(month) > startOfMonth(today);
   const canGoNext = startOfMonth(addMonths(month, 1)) <= startOfMonth(maxDate);
 
   const slotMinutes = service?.durationMinutes || APPOINTMENT_LIMITS.defaultSlotMinutes;
-  const isDisabled = (date) =>
-    date < today || date > maxDate || !workingDays.has(date.getDay()) || !hasBookableTime(doctor, date, slotMinutes);
+  const rangeFrom = toIsoDate(cells[0]);
+  const rangeTo = toIsoDate(cells[cells.length - 1]);
+  const requestKey = `${doctor?.id}|${service?.id}|${rangeFrom}|${rangeTo}`;
+
+  useEffect(() => {
+    if (!doctor || !service) return undefined;
+    const controller = new AbortController();
+    const key = requestKey;
+    api
+      .getAvailableDays({ doctor: doctor.id, service: service.id, from: rangeFrom, to: rangeTo }, { signal: controller.signal })
+      .then((response) => setAvailableDays({ key, days: new Set(response.data.days || []), error: "" }))
+      .catch((err) => {
+        if (err?.name === "AbortError") return;
+        setAvailableDays({ key, days: null, error: err.message || "Could not load availability." });
+      });
+    return () => controller.abort();
+  }, [doctor, service, rangeFrom, rangeTo, requestKey]);
+
+  const loading = availableDays.key !== requestKey;
+  const known = !loading && availableDays.days instanceof Set;
+
+  const isDisabled = (date) => {
+    if (date < today || date > maxDate) return true;
+    if (known) return !availableDays.days.has(toIsoDate(date));
+    // Fallback while loading / on error: weekly schedule + lead time.
+    return !hasBookableTime(doctor, date, slotMinutes);
+  };
 
   const moveFocus = (fromIso, days) => {
     const next = addDays(parseIsoDate(fromIso), days);
@@ -40,7 +71,6 @@ export function DateSelector({ doctor, service, value, onChange }) {
     if (next.getMonth() !== month.getMonth() || next.getFullYear() !== month.getFullYear()) {
       setMonth(startOfMonth(next));
     }
-    // Focus after the grid re-renders
     window.requestAnimationFrame(() => {
       document.getElementById(`day-${toIsoDate(next)}`)?.focus();
     });
@@ -66,8 +96,9 @@ export function DateSelector({ doctor, service, value, onChange }) {
         >
           <ChevronLeft className="h-4.5 w-4.5" aria-hidden="true" />
         </button>
-        <p className="text-base font-semibold text-slate-900" aria-live="polite">
+        <p className="inline-flex items-center gap-2 text-base font-semibold text-slate-900" aria-live="polite">
           {formatMonthYear(month)}
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-brand-500" aria-label="Checking availability" />}
         </p>
         <button
           type="button"
@@ -80,7 +111,7 @@ export function DateSelector({ doctor, service, value, onChange }) {
         </button>
       </div>
 
-      <div role="grid" aria-label={`Available dates in ${formatMonthYear(month)}`} className="mt-5">
+      <div role="grid" aria-label={`Available dates in ${formatMonthYear(month)}`} aria-busy={loading} className={cn("mt-5 transition-opacity", loading && "opacity-70")}>
         <div role="row" className="grid grid-cols-7 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
           {WEEKDAYS.map((day) => (
             <div key={day} role="columnheader" className="py-2">
@@ -130,6 +161,12 @@ export function DateSelector({ doctor, service, value, onChange }) {
           })}
         </div>
       </div>
+
+      {availableDays.error && !loading && (
+        <p className="mt-3 text-xs text-amber-700" role="status">
+          Live availability could not be loaded; showing the regular schedule instead.
+        </p>
+      )}
 
       <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
         <span className="inline-flex items-center gap-2">

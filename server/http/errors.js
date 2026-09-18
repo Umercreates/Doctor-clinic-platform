@@ -27,8 +27,25 @@ export class ApiError extends Error {
     return new ApiError(409, "CONFLICT", message, details);
   }
 
-  static unauthorized(message = "Authentication required.") {
+  /** A booking/reschedule target that is no longer free. */
+  static slotUnavailable(message = "This appointment slot is no longer available.") {
+    return new ApiError(409, "SLOT_UNAVAILABLE", message, { time: "This slot is no longer available. Please select another time." });
+  }
+
+  static unauthorized(message = "Please sign in to continue.") {
     return new ApiError(401, "UNAUTHORIZED", message);
+  }
+
+  static forbidden(message = "You do not have permission to perform this action.") {
+    return new ApiError(403, "FORBIDDEN", message);
+  }
+
+  static tooManyRequests(message = "Too many attempts. Please wait a moment and try again.") {
+    return new ApiError(429, "RATE_LIMITED", message);
+  }
+
+  static serviceUnavailable(message = "This service is temporarily unavailable.") {
+    return new ApiError(503, "SERVICE_UNAVAILABLE", message);
   }
 
   static notImplemented(message = "This feature is not available yet.") {

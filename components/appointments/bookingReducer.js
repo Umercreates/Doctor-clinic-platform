@@ -12,6 +12,8 @@ export const initialBookingState = {
   errors: {},
   submission: { status: "idle", error: null },
   confirmation: null,
+  /** Incremented when slots must be re-fetched (e.g. after a conflict). */
+  slotRefreshKey: 0,
 };
 
 /**
@@ -77,15 +79,21 @@ export function bookingReducer(state, action) {
         confirmation: action.confirmation,
         stepIndex: STEP_INDEX.confirmation,
       };
-    case "SUBMIT_FAILURE":
+    case "SUBMIT_FAILURE": {
+      // A slot conflict sends the patient back to the time step with fresh slots.
+      const slotTaken = action.code === "SLOT_UNAVAILABLE" || Boolean(action.fieldErrors?.time);
       return {
         ...state,
-        submission: { status: "error", error: action.error },
+        submission: {
+          status: "error",
+          error: slotTaken ? "This slot was just booked. Please select another time." : action.error,
+        },
         errors: action.fieldErrors ? { ...state.errors, ...action.fieldErrors } : state.errors,
-        // A time conflict sends the patient back to the time step.
-        stepIndex: action.fieldErrors?.time ? STEP_INDEX.time : state.stepIndex,
-        time: action.fieldErrors?.time ? null : state.time,
+        stepIndex: slotTaken ? STEP_INDEX.time : state.stepIndex,
+        time: slotTaken ? null : state.time,
+        slotRefreshKey: slotTaken ? state.slotRefreshKey + 1 : state.slotRefreshKey,
       };
+    }
     case "RESET":
       return { ...initialBookingState, patient: { ...emptyPatient } };
     default:

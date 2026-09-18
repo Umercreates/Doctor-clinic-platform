@@ -2,18 +2,27 @@
   "name": "doctor-clinic",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Production-quality medical clinic website and appointment platform (Next.js App Router, JavaScript, Tailwind CSS).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "db:migrate": "node lib/database/migrate.mjs up",
+    "db:migrate:status": "node lib/database/migrate.mjs status",
+    "db:seed": "node lib/database/seed.mjs",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "db:reset": "node lib/database/reset.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.47.0",
     "next": "^16.3.5",
+    "pg": "^8.23.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwind-merge": "^3.3.1"
@@ -25,6 +34,6 @@
     "tailwindcss": "^4.3.3"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=22.12.0"
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { Input } from "@/components/ui/FormField";
 import { Button } from "@/components/ui/Button";
@@ -9,18 +10,21 @@ import { api } from "@/lib/api";
 import { email as validateEmail, required } from "@/lib/validation/common";
 
 /**
- * Staff sign-in form. Posts to /api/v1/auth/login; sessions are implemented
- * in the backend phase, so the API currently responds with a clear message.
+ * Staff sign-in form. Posts to /api/v1/auth/login, which sets the HTTP-only
+ * session cookie; on success the router navigates to the requested dashboard
+ * page. The password never touches storage on the client.
  */
-export function LoginForm() {
-  const [values, setValues] = useState({ email: "", password: "" });
+export function LoginForm({ nextPath = "/dashboard" }) {
+  const router = useRouter();
+  const [values, setValues] = useState({ email: "", password: "", remember: false });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
-  const [status, setStatus] = useState("idle");
+  const [status, setStatus] = useState("idle"); // idle | submitting | success | error
   const [message, setMessage] = useState("");
 
   const update = (field) => (event) => {
-    setValues((prev) => ({ ...prev, [field]: event.target.value }));
+    const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    setValues((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
@@ -33,25 +37,30 @@ export function LoginForm() {
     if (passwordError) nextErrors.password = passwordError;
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
+      document.getElementById(nextErrors.email ? "login-email" : "login-password")?.focus();
       return;
     }
 
     setStatus("submitting");
     setMessage("");
     try {
-      await api.login(values);
+      await api.login({ email: values.email, password: values.password, remember: values.remember });
       setStatus("success");
+      router.replace(nextPath);
+      router.refresh();
     } catch (error) {
       if (error.details) setErrors(error.details);
       setMessage(error.message || "Sign-in failed. Please try again.");
-      setStatus(error.code === "NOT_IMPLEMENTED" ? "unavailable" : "error");
+      setStatus("error");
     }
   };
 
+  const busy = status === "submitting" || status === "success";
+
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-5" aria-busy={busy}>
       {message && (
-        <Alert tone={status === "unavailable" ? "info" : "error"} title={status === "unavailable" ? "Sign-in not yet enabled" : "Sign-in failed"}>
+        <Alert tone="error" title="Sign-in failed">
           {message}
         </Alert>
       )}
@@ -94,13 +103,19 @@ export function LoginForm() {
       </div>
       <div className="flex items-center justify-between text-sm">
         <label className="inline-flex items-center gap-2 text-slate-600">
-          <input type="checkbox" name="remember" className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-          Remember me
+          <input
+            type="checkbox"
+            name="remember"
+            checked={values.remember}
+            onChange={update("remember")}
+            className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+          Keep me signed in for 30 days
         </label>
         <span className="text-slate-400">Forgot password? Contact an administrator.</span>
       </div>
-      <Button type="submit" size="lg" fullWidth leftIcon={LogIn} loading={status === "submitting"}>
-        Sign in
+      <Button type="submit" size="lg" fullWidth leftIcon={LogIn} loading={busy}>
+        {status === "success" ? "Signed in" : "Sign in"}
       </Button>
     </form>
   );

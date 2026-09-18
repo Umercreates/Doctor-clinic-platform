@@ -7,7 +7,6 @@ import {
   ExternalLink,
   FileText,
   LayoutDashboard,
-  LogOut,
   Settings,
   Stethoscope,
   Users,
@@ -16,18 +15,23 @@ import {
   X,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
+import { SignOutButton } from "./SignOutButton";
 import { dashboardRoutes, routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
+/**
+ * Navigation items with the permission each requires. Items a role cannot use
+ * are hidden here AND enforced server-side on the page and API.
+ */
 export const dashboardNavigation = [
-  { label: "Overview", href: dashboardRoutes.root, icon: LayoutDashboard, exact: true },
-  { label: "Appointments", href: dashboardRoutes.appointments, icon: CalendarDays },
-  { label: "Patients", href: dashboardRoutes.patients, icon: Users },
-  { label: "Doctors", href: dashboardRoutes.doctors, icon: UserRound },
-  { label: "Services", href: dashboardRoutes.services, icon: Stethoscope },
-  { label: "Schedule", href: dashboardRoutes.schedule, icon: CalendarClock },
-  { label: "Website content", href: dashboardRoutes.content, icon: FileText },
-  { label: "Settings", href: dashboardRoutes.settings, icon: Settings },
+  { label: "Overview", href: dashboardRoutes.root, icon: LayoutDashboard, exact: true, roles: ["admin", "staff", "doctor"] },
+  { label: "Appointments", href: dashboardRoutes.appointments, icon: CalendarDays, roles: ["admin", "staff", "doctor"] },
+  { label: "Patients", href: dashboardRoutes.patients, icon: Users, roles: ["admin", "staff", "doctor"] },
+  { label: "Doctors", href: dashboardRoutes.doctors, icon: UserRound, roles: ["admin", "staff"] },
+  { label: "Services", href: dashboardRoutes.services, icon: Stethoscope, roles: ["admin", "staff"] },
+  { label: "Schedule", href: dashboardRoutes.schedule, icon: CalendarClock, roles: ["admin", "staff", "doctor"] },
+  { label: "Website content", href: dashboardRoutes.content, icon: FileText, roles: ["admin"] },
+  { label: "Settings", href: dashboardRoutes.settings, icon: Settings, roles: ["admin"] },
 ];
 
 function isActive(pathname, item) {
@@ -38,8 +42,9 @@ function isActive(pathname, item) {
 /**
  * Dashboard sidebar. Persistent on desktop; slides in as a drawer on mobile.
  */
-export function Sidebar({ open, onClose }) {
+export function Sidebar({ user, open, onClose }) {
   const pathname = usePathname();
+  const items = dashboardNavigation.filter((item) => item.roles.includes(user?.role));
 
   return (
     <>
@@ -74,7 +79,7 @@ export function Sidebar({ open, onClose }) {
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <p className="px-3 pb-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-400">Manage</p>
           <ul className="space-y-1">
-            {dashboardNavigation.map((item) => {
+            {items.map((item) => {
               const active = isActive(pathname, item);
               return (
                 <li key={item.href}>
@@ -87,7 +92,10 @@ export function Sidebar({ open, onClose }) {
                       active ? "bg-brand-50 text-brand-700" : "text-slate-700 hover:bg-slate-50 hover:text-slate-900",
                     )}
                   >
-                    <item.icon className={cn("h-4.5 w-4.5 shrink-0", active ? "text-brand-600" : "text-slate-400 group-hover:text-slate-600")} aria-hidden="true" />
+                    <item.icon
+                      className={cn("h-4.5 w-4.5 shrink-0", active ? "text-brand-600" : "text-slate-400 group-hover:text-slate-600")}
+                      aria-hidden="true"
+                    />
                     {item.label}
                   </Link>
                 </li>
@@ -104,13 +112,7 @@ export function Sidebar({ open, onClose }) {
             <ExternalLink className="h-4.5 w-4.5 text-slate-400" aria-hidden="true" />
             View public website
           </Link>
-          <Link
-            href={dashboardRoutes.login}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <LogOut className="h-4.5 w-4.5 text-slate-400" aria-hidden="true" />
-            Sign out
-          </Link>
+          <SignOutButton />
         </div>
       </aside>
     </>

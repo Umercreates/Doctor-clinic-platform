@@ -1,44 +1,56 @@
 /**
- * Appointment booking use-cases.
+ * Appointment use-cases.
  *
- * Demo phase: validates the request, checks the slot against the in-memory
- * store, and records a pending appointment. The backend phase replaces the
- * repository with PostgreSQL and adds notifications; the public interface of
- * this module stays the same.
+ * Public booking: validate → check availability → transaction (advisory lock
+ * per doctor/day, re-check availability, upsert patient, insert) → the
+ * database exclusion constraint is the final guard. Two simultaneous requests
+ * for one slot yield one 201 and one 409 SLOT_UNAVAILABLE.
+ *
+ * Dashboard operations are scoped by role: admins/staff see everything,
+ * doctors only their own appointments. Status transitions are validated
+ * server-side; records are never deleted, cancellation releases the slot.
  */
 import { ApiError } from "@/server/http/errors";
 import { validateAppointmentRequest } from "@/lib/validation/appointment";
+import {
+  RESCHEDULABLE_STATUSES,
+  canTransition,
+  validateAppointmentPatch,
+  validateReschedule,
+} from "@/lib/validation/appointmentAdmin";
+import { isIsoDate, parseIsoDate, todayIso } from "@/lib/dates";
+import { isDatabaseConfigured } from "@/lib/database";
+import { canAccessDoctorRecord } from "@/server/auth/permissions";
 import { getDoctorById } from "@/server/repositories/doctorsRepository";
 import { getServiceById } from "@/server/repositories/servicesRepository";
-import { createAppointment } from "@/server/repositories/appointmentsRepository";
-import { isSlotAvailable } from "@/server/services/availabilityService";
+import * as appointments from "@/server/repositories/appointmentsRepository";
+import { getAvailability, isSlotAvailable } from "@/server/services/availabilityService";
 
-/** Shape returned to the client after a booking. Never exposes internal fields. */
+/** Shape returned to the public booking flow. Never exposes internal notes. */
 function toPublicAppointment(appointment, doctor, service) {
   return {
     reference: appointment.reference,
     status: appointment.status,
     date: appointment.date,
     time: appointment.time,
-    durationMinutes: appointment.durationMinutes,
+    endTime: appointment.endTime,
+    durationMinutes: appointment.durationMinutes ?? service.durationMinutes,
     doctor: { id: doctor.id, slug: doctor.slug, name: doctor.name, role: doctor.role },
     service: { id: service.id, slug: service.slug, name: service.name },
     patient: {
       fullName: appointment.patient.fullName,
       email: appointment.patient.email,
       phone: appointment.patient.phone,
-      notes: appointment.patient.notes,
+      notes: appointment.patientNotes || "",
     },
     createdAt: appointment.createdAt,
-    isDemo: true,
+    isDemo: !isDatabaseConfigured(),
   };
 }
 
 export async function bookAppointment(input) {
   const validation = validateAppointmentRequest(input);
-  if (!validation.valid) {
-    throw ApiError.validation(validation.errors);
-  }
+  if (!validation.valid) throw ApiError.validation(validation.errors);
 
   const { doctorId, serviceId, date, time, patient } = validation.value;
 
@@ -52,23 +64,124 @@ export async function bookAppointment(input) {
     throw ApiError.validation({ serviceId: `${doctor.name} does not offer ${service.name}.` });
   }
 
-  const available = await isSlotAvailable({ doctorId, serviceId, date, time });
-  if (!available) {
-    throw ApiError.conflict(
-      "That time is no longer available. Please choose another time.",
-      { time: "This time slot is no longer available." },
-    );
-  }
+  // Never trust availability from the browser: compute it here first...
+  if (!(await isSlotAvailable({ doctorId, serviceId, date, time }))) throw ApiError.slotUnavailable();
 
-  const appointment = await createAppointment({
-    doctorId,
-    serviceId,
+  // ...and again inside the transaction, after the per-day lock.
+  const appointment = await appointments.bookAppointment({
+    doctor,
+    service,
     date,
     time,
-    durationMinutes: service.durationMinutes,
-    patient,
-    source: "website",
+    patient: { fullName: patient.fullName, email: patient.email, phone: patient.phone },
+    notes: patient.notes,
+    ensureAvailable: async (client) => {
+      if (!(await isSlotAvailable({ doctorId, serviceId, date, time }, client))) throw ApiError.slotUnavailable();
+    },
   });
 
   return toPublicAppointment(appointment, doctor, service);
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
+export async function listAppointmentsForUser(scope, filters = {}) {
+  const effective = { ...filters };
+  if (!scope.all) {
+    if (filters.doctorId && filters.doctorId !== scope.doctorId) throw ApiError.forbidden();
+    effective.doctorId = scope.doctorId;
+  }
+  return appointments.listAppointments(effective);
+}
+
+export async function getAppointmentForUser(user, id) {
+  const appointment = await appointments.getAppointmentById(id);
+  if (!appointment) throw ApiError.notFound("Appointment not found.");
+  if (!canAccessDoctorRecord(user, "appointments:read", appointment.doctorId)) throw ApiError.forbidden();
+  return appointment;
+}
+
+async function getWritableAppointment(user, id) {
+  const existing = await appointments.getAppointmentById(id);
+  if (!existing) throw ApiError.notFound("Appointment not found.");
+  if (!canAccessDoctorRecord(user, "appointments:write", existing.doctorId)) throw ApiError.forbidden();
+  return existing;
+}
+
+export async function updateAppointmentForUser(user, id, input) {
+  const validation = validateAppointmentPatch(input);
+  if (!validation.valid) throw ApiError.validation(validation.errors);
+
+  const existing = await getWritableAppointment(user, id);
+  if (validation.value.status && !canTransition(existing.status, validation.value.status)) {
+    throw ApiError.validation({
+      status: `An appointment that is ${existing.status} cannot be marked ${validation.value.status}.`,
+    });
+  }
+  if (validation.value.status === "rescheduled") {
+    throw ApiError.validation({ status: "Use the reschedule action to move an appointment to a new time." });
+  }
+  return appointments.updateAppointment(id, validation.value, { updatedBy: user.id });
+}
+
+export async function cancelAppointmentForUser(user, id, reason) {
+  return updateAppointmentForUser(user, id, { status: "cancelled", cancelReason: reason });
+}
+
+/** Slots the appointment could move to on `date` (its own current slot counts as free). */
+export async function getRescheduleOptions(user, id, date) {
+  const existing = await getWritableAppointment(user, id);
+  if (!RESCHEDULABLE_STATUSES.includes(existing.status)) {
+    throw ApiError.validation({ status: `A ${existing.status} appointment cannot be rescheduled.` });
+  }
+  return getAvailability({ doctorId: existing.doctorId, serviceId: existing.serviceId, date, excludeAppointmentId: id });
+}
+
+export async function rescheduleAppointmentForUser(user, id, input) {
+  const validation = validateReschedule(input);
+  if (!validation.valid) throw ApiError.validation(validation.errors);
+  const { date, time } = validation.value;
+
+  const existing = await getWritableAppointment(user, id);
+  if (!RESCHEDULABLE_STATUSES.includes(existing.status)) {
+    throw ApiError.validation({ status: `A ${existing.status} appointment cannot be rescheduled.` });
+  }
+  if (!isIsoDate(date) || parseIsoDate(date) < parseIsoDate(todayIso())) {
+    throw ApiError.validation({ date: "Appointments cannot be moved into the past." });
+  }
+  if (existing.date === date && existing.time === time) {
+    throw ApiError.validation({ time: "Choose a different date or time." });
+  }
+
+  const check = { doctorId: existing.doctorId, serviceId: existing.serviceId, date, time, excludeAppointmentId: id };
+  if (!(await isSlotAvailable(check))) throw ApiError.slotUnavailable();
+
+  const service = await getServiceById(existing.serviceId, { includeInactive: true });
+  const updated = await appointments.rescheduleAppointment(id, {
+    date,
+    time,
+    durationMinutes: service?.durationMinutes || existing.durationMinutes || 30,
+    updatedBy: user.id,
+    ensureAvailable: async (client) => {
+      if (!(await isSlotAvailable(check, client))) throw ApiError.slotUnavailable();
+    },
+  });
+  if (!updated) throw ApiError.notFound("Appointment not found.");
+  return updated;
+}
+
+export async function getDashboardSummary(scope, today) {
+  const doctorScope = scope.all ? {} : { doctorId: scope.doctorId };
+  const [byStatus, todayCount, todayList] = await Promise.all([
+    appointments.countAppointmentsByStatus(doctorScope),
+    appointments.countAppointmentsOnDate(today, doctorScope),
+    appointments.listAppointments({ ...doctorScope, date: today, limit: 50 }),
+  ]);
+  return {
+    byStatus,
+    today: todayCount,
+    todayAppointments: [...todayList.items].sort((a, b) => a.time.localeCompare(b.time)),
+  };
 }

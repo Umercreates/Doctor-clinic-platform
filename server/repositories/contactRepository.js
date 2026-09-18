@@ -1,18 +1,12 @@
 /**
- * Contact messages repository (in-memory until PostgreSQL is connected).
+ * contactRepository facade. Chooses the PostgreSQL implementation when DATABASE_URL is
+ * configured, otherwise the bundled demo implementation. Callers import from
+ * this module only, so the data source can change without touching them.
  */
-import { getMemoryStore } from "@/lib/database/memoryStore";
-import { generateReference } from "@/lib/utils";
+import { isDatabaseConfigured } from "@/lib/database";
+import * as pg from "./pg/contactRepository";
+import * as demo from "./demo/contactRepository";
 
-export async function createContactMessage(input) {
-  const store = getMemoryStore();
-  const message = {
-    id: `msg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
-    reference: generateReference("MSG"),
-    status: "new",
-    createdAt: new Date().toISOString(),
-    ...input,
-  };
-  store.contactMessages.push(message);
-  return message;
-}
+const impl = isDatabaseConfigured() ? pg : demo;
+
+export const createContactMessage = (...args) => impl.createContactMessage(...args);
