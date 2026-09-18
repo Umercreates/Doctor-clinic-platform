@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+ * Design tokens
+ * Palette derived from the clinic logo: blue medical cross (#1a80c4) and
+ * teal leaf (#3bc4b4). Neutrals use Tailwind's blue-tinted slate scale.
+ * ------------------------------------------------------------------------- */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Brand blue (primary) */
+  --color-brand-50: #eff7fc;
+  --color-brand-100: #d9ecf8;
+  --color-brand-200: #b7dcf2;
+  --color-brand-300: #82c3e8;
+  --color-brand-400: #47a5db;
+  --color-brand-500: #1a80c4;
+  --color-brand-600: #156aa6;
+  --color-brand-700: #135688;
+  --color-brand-800: #134870;
+  --color-brand-900: #143d5d;
+  --color-brand-950: #0b2540;
+
+  /* Accent teal (secondary) */
+  --color-accent-50: #effbf9;
+  --color-accent-100: #d5f5f0;
+  --color-accent-200: #aeeae2;
+  --color-accent-300: #79d8cd;
+  --color-accent-400: #3bc4b4;
+  --color-accent-500: #22a898;
+  --color-accent-600: #1a877b;
+  --color-accent-700: #196c64;
+  --color-accent-800: #185651;
+  --color-accent-900: #174844;
+  --color-accent-950: #072b29;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f9fc;
+  --color-surface-subtle: #eef3f8;
+
+  /* Elevation */
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -8px rgb(15 23 42 / 0.08);
+  --shadow-card: 0 1px 3px rgb(15 23 42 / 0.05), 0 12px 32px -12px rgb(15 23 42 / 0.12);
+  --shadow-lift: 0 2px 6px rgb(15 23 42 / 0.06), 0 24px 48px -16px rgb(15 23 42 / 0.18);
+  --shadow-brand: 0 10px 30px -10px rgb(26 128 196 / 0.5);
+
+  /* Radii */
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-fade-in: fade-in 0.6s var(--ease-out-soft) both;
+  --animate-slide-up: slide-up 0.7s var(--ease-out-soft) both;
+  --animate-page-in: page-in 0.5s var(--ease-out-soft) both;
+  --animate-image-reveal: image-reveal 0.9s var(--ease-out-soft) both;
+  --animate-float: float 7s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes image-reveal {
+    from { opacity: 0; transform: scale(1.04); clip-path: inset(6% round 2rem); }
+    to { opacity: 1; transform: scale(1); clip-path: inset(0 round 2rem); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------- */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface font-sans text-slate-700 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight text-slate-900;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-100);
+    color: var(--color-brand-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+
+  button, [role="button"] {
+    cursor: pointer;
+  }
+
+  button:disabled, [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Components
+ * ------------------------------------------------------------------------- */
+@layer components {
+  /* Scroll-triggered reveal (see components/ui/Reveal.jsx).
+     Visible by default; `.is-hidden` is added on the client only for
+     off-screen elements and removed when they scroll into view. */
+  .reveal {
+    transition:
+      opacity 0.7s var(--ease-out-soft),
+      transform 0.7s var(--ease-out-soft);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .reveal.is-hidden {
+    opacity: 0;
+    transform: translateY(20px);
+    will-change: opacity, transform;
+  }
+  .reveal.is-hidden[data-variant="fade"] { transform: none; }
+  .reveal.is-hidden[data-variant="left"] { transform: translateX(-24px); }
+  .reveal.is-hidden[data-variant="right"] { transform: translateX(24px); }
+  .reveal.is-hidden[data-variant="scale"] { transform: scale(0.96); }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Soft gradient backgrounds used on hero / CTA sections */
+  .bg-hero-glow {
+    background-image:
+      radial-gradient(60rem 30rem at 85% 0%, rgb(59 196 180 / 0.18), transparent 60%),
+      radial-gradient(50rem 28rem at 0% 100%, rgb(26 128 196 / 0.14), transparent 60%),
+      linear-gradient(180deg, #f7fbfe 0%, #ffffff 100%);
+  }
+  .bg-brand-gradient {
+    background-image:
+      radial-gradient(48rem 24rem at 90% 10%, rgb(59 196 180 / 0.35), transparent 60%),
+      linear-gradient(135deg, var(--color-brand-800) 0%, var(--color-brand-950) 100%);
+  }
+  .bg-grid-soft {
+    background-image:
+      linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(15 23 42 / 0.04) 1px, transparent 1px);
+    background-size: 2.5rem 2.5rem;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+
+  /* Animated underline for text links */
+  .link-underline {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    transition: background-size 0.3s var(--ease-out-soft);
+  }
+  .link-underline:hover,
+  .link-underline:focus-visible {
+    background-size: 100% 1px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal.is-hidden {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
