@@ -18,13 +18,14 @@ import {
   validateAppointmentPatch,
   validateReschedule,
 } from "@/lib/validation/appointmentAdmin";
-import { isIsoDate, parseIsoDate, todayIso } from "@/lib/dates";
+import { addDays, isIsoDate, parseIsoDate, toIsoDate, todayIso } from "@/lib/dates";
 import { isDatabaseConfigured } from "@/lib/database";
 import { canAccessDoctorRecord } from "@/server/auth/permissions";
 import { getDoctorById } from "@/server/repositories/doctorsRepository";
 import { getServiceById } from "@/server/repositories/servicesRepository";
 import * as appointments from "@/server/repositories/appointmentsRepository";
 import { getAvailability, isSlotAvailable } from "@/server/services/availabilityService";
+import { NOTIFICATION_TEMPLATES, queueAppointmentNotification } from "@/server/services/notificationService";
 
 /** Shape returned to the public booking flow. Never exposes internal notes. */
 function toPublicAppointment(appointment, doctor, service) {
@@ -80,6 +81,8 @@ export async function bookAppointment(input) {
     },
   });
 
+  // Outbox only: nothing is delivered until a provider is configured (see notificationService).
+  await queueAppointmentNotification(NOTIFICATION_TEMPLATES.REQUESTED, { ...appointment, doctor, service });
   return toPublicAppointment(appointment, doctor, service);
 }
 
@@ -123,7 +126,10 @@ export async function updateAppointmentForUser(user, id, input) {
   if (validation.value.status === "rescheduled") {
     throw ApiError.validation({ status: "Use the reschedule action to move an appointment to a new time." });
   }
-  return appointments.updateAppointment(id, validation.value, { updatedBy: user.id });
+  const updated = await appointments.updateAppointment(id, validation.value, { updatedBy: user.id });
+  if (validation.value.status === "confirmed") await queueAppointmentNotification(NOTIFICATION_TEMPLATES.CONFIRMED, updated);
+  if (validation.value.status === "cancelled") await queueAppointmentNotification(NOTIFICATION_TEMPLATES.CANCELLED, updated);
+  return updated;
 }
 
 export async function cancelAppointmentForUser(user, id, reason) {
@@ -169,19 +175,23 @@ export async function rescheduleAppointmentForUser(user, id, input) {
     },
   });
   if (!updated) throw ApiError.notFound("Appointment not found.");
+  await queueAppointmentNotification(NOTIFICATION_TEMPLATES.RESCHEDULED, updated);
   return updated;
 }
 
 export async function getDashboardSummary(scope, today) {
   const doctorScope = scope.all ? {} : { doctorId: scope.doctorId };
-  const [byStatus, todayCount, todayList] = await Promise.all([
+  const weekEnd = toIsoDate(addDays(parseIsoDate(today), 6));
+  const [byStatus, todayCount, upcomingWeek, todayList] = await Promise.all([
     appointments.countAppointmentsByStatus(doctorScope),
     appointments.countAppointmentsOnDate(today, doctorScope),
+    appointments.countAppointmentsInRange(today, weekEnd, doctorScope),
     appointments.listAppointments({ ...doctorScope, date: today, limit: 50 }),
   ]);
   return {
     byStatus,
     today: todayCount,
+    upcomingWeek,
     todayAppointments: [...todayList.items].sort((a, b) => a.time.localeCompare(b.time)),
   };
 }

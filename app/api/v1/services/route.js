@@ -2,6 +2,7 @@ import { created, ok, readJson, withErrorHandling } from "@/server/http/response
 import { requirePermission } from "@/server/auth/currentUser";
 import { listServices } from "@/server/repositories/servicesRepository";
 import { createService } from "@/server/services/catalogService";
+import { revalidateServices } from "@/server/revalidation";
 
 /** GET /api/v1/services — public list of active services. */
 export const GET = withErrorHandling(async (request) => {
@@ -20,5 +21,6 @@ export const POST = withErrorHandling(async (request) => {
   await requirePermission(request, "services:write");
   const body = await readJson(request);
   const service = await createService(body);
+  revalidateServices([service.slug]);
   return created(service);
 });

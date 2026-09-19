@@ -2,6 +2,7 @@ import { ok, readJson, withErrorHandling } from "@/server/http/response";
 import { requirePermission } from "@/server/auth/currentUser";
 import { listDoctorsByService } from "@/server/repositories/doctorsRepository";
 import { deactivateService, getServiceOrThrow, updateService } from "@/server/services/catalogService";
+import { revalidateServices } from "@/server/revalidation";
 
 /** GET /api/v1/services/:id — public; `id` may be a UUID or a slug. */
 export const GET = withErrorHandling(async (_request, { params }) => {
@@ -15,7 +16,9 @@ async function update(request, { params }) {
   await requirePermission(request, "services:write");
   const { id } = await params;
   const body = await readJson(request);
-  return ok(await updateService(id, body));
+  const service = await updateService(id, body);
+  revalidateServices([service.slug]);
+  return ok(service);
 }
 
 export const PATCH = withErrorHandling(update);
@@ -25,5 +28,7 @@ export const PUT = withErrorHandling(update);
 export const DELETE = withErrorHandling(async (request, { params }) => {
   await requirePermission(request, "services:write");
   const { id } = await params;
-  return ok(await deactivateService(id));
+  const service = await deactivateService(id);
+  revalidateServices([service.slug]);
+  return ok(service);
 });

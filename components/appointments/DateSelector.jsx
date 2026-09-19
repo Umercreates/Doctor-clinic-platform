@@ -18,13 +18,13 @@ const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
  * the month's availability loads, the weekly schedule is used as a fast
  * approximation and the grid is marked busy. Supports arrow-key navigation.
  */
-export function DateSelector({ doctor, service, value, onChange }) {
+export function DateSelector({ doctor, service, value, onChange, rules = APPOINTMENT_LIMITS }) {
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
-  const maxDate = useMemo(() => addDays(today, APPOINTMENT_LIMITS.maxDaysAhead), [today]);
+  const maxDate = useMemo(() => addDays(today, rules.maxDaysAhead), [today, rules.maxDaysAhead]);
 
   const [month, setMonth] = useState(() => startOfMonth(value ? parseIsoDate(value) : today));
   const [focusedIso, setFocusedIso] = useState(value || toIsoDate(today));
@@ -35,7 +35,7 @@ export function DateSelector({ doctor, service, value, onChange }) {
   const canGoPrev = startOfMonth(month) > startOfMonth(today);
   const canGoNext = startOfMonth(addMonths(month, 1)) <= startOfMonth(maxDate);
 
-  const slotMinutes = service?.durationMinutes || APPOINTMENT_LIMITS.defaultSlotMinutes;
+  const slotMinutes = service?.durationMinutes || rules.defaultSlotMinutes;
   const rangeFrom = toIsoDate(cells[0]);
   const rangeTo = toIsoDate(cells[cells.length - 1]);
   const requestKey = `${doctor?.id}|${service?.id}|${rangeFrom}|${rangeTo}`;
@@ -61,7 +61,7 @@ export function DateSelector({ doctor, service, value, onChange }) {
     if (date < today || date > maxDate) return true;
     if (known) return !availableDays.days.has(toIsoDate(date));
     // Fallback while loading / on error: weekly schedule + lead time.
-    return !hasBookableTime(doctor, date, slotMinutes);
+    return !hasBookableTime(doctor, date, slotMinutes, new Date(), rules);
   };
 
   const moveFocus = (fromIso, days) => {
@@ -181,7 +181,7 @@ export function DateSelector({ doctor, service, value, onChange }) {
           <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
           Today
         </span>
-        <span className="ml-auto">Book up to {APPOINTMENT_LIMITS.maxDaysAhead} days ahead</span>
+        <span className="ml-auto">Book up to {rules.maxDaysAhead} days ahead</span>
       </div>
     </div>
   );

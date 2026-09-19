@@ -57,9 +57,17 @@ export async function getServiceOrThrow(idOrSlug, { includeInactive = false } = 
   return service;
 }
 
+async function assertDoctorsExist(doctorIds) {
+  for (const doctorId of doctorIds) {
+    const doctor = await doctors.getDoctorById(doctorId, { includeInactive: true });
+    if (!doctor) throw ApiError.validation({ doctorIds: `Doctor ${doctorId} does not exist.` });
+  }
+}
+
 export async function createService(input) {
   const validation = validateServiceInput(input);
   if (!validation.valid) throw ApiError.validation(validation.errors);
+  if (validation.value.doctorIds) await assertDoctorsExist(validation.value.doctorIds);
   return services.createService({ isActive: true, isDemo: false, ...validation.value });
 }
 
@@ -70,6 +78,7 @@ export async function updateService(id, input) {
   const validation = validateServiceInput(input, { partial: true });
   if (!validation.valid) throw ApiError.validation(validation.errors);
   if (!Object.keys(validation.value).length) throw ApiError.validation({ body: "Nothing to update." });
+  if (validation.value.doctorIds) await assertDoctorsExist(validation.value.doctorIds);
   return services.updateService(id, validation.value);
 }
 

@@ -1,13 +1,12 @@
-import { clinic } from "@/data/clinic";
 import { formatTime12h } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
 /**
- * Opening hours table driven by clinic.hours. Highlights today's row.
+ * Opening hours table driven by clinic.hours (website settings). Highlights today's row.
  */
-export function OpeningHours({ className, highlightToday = true }) {
+export function OpeningHours({ clinic, className, highlightToday = true }) {
   const today = new Date().getDay();
-  const ordered = [...clinic.hours.schedule].sort((a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7));
+  const ordered = [...(clinic.hours?.schedule || [])].sort((a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7));
 
   return (
     <dl className={cn("divide-y divide-slate-100 text-sm", className)}>

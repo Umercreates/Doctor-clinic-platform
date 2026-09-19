@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { Accordion } from "@/components/faq/Accordion";
 import { routes } from "@/lib/routes";
 
+/** Homepage FAQ preview (featured, active FAQs). Hidden when there are none. */
 export function FaqPreview({ faqs }) {
+  if (!faqs?.length) return null;
   return (
     <Section tone="white" aria-labelledby="faq-heading">
       <div className="grid gap-10 lg:grid-cols-12 lg:gap-16">

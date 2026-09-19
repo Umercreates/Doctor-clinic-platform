@@ -8,7 +8,8 @@
  */
 import { ApiError } from "@/server/http/errors";
 import { validateLogin } from "@/lib/validation/auth";
-import { checkLoginRateLimit, clearLoginRateLimit } from "@/server/auth/rateLimit";
+import { clearRateLimit, enforceRateLimit } from "@/server/security/rateLimit";
+import { log, maskEmail } from "@/server/log";
 import { resolveAppUser } from "@/server/auth/currentUser";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { isDatabaseConfigured } from "@/lib/database";
@@ -41,13 +42,16 @@ export async function login(input, { supabase, ipAddress } = {}) {
   if (!validation.valid) throw ApiError.validation(validation.errors);
   const { email, password } = validation.value;
 
-  const limitKey = `${ipAddress || "unknown"}:${email}`;
-  if (!checkLoginRateLimit(limitKey).allowed) throw ApiError.tooManyRequests();
+  // Two limits: per IP across accounts, and per IP + account (credential stuffing).
+  const ip = ipAddress || "unknown";
+  await enforceRateLimit("login:ip", ip);
+  const identityKey = `${ip}:${email}`;
+  await enforceRateLimit("login:identity", identityKey);
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data?.user) {
     const status = error?.status;
-    console.warn(`[auth] Failed login for ${email} from ${ipAddress || "unknown"} (${error?.code || status || "unknown"})`);
+    log.warn("auth.login_failed", { email: maskEmail(email), ip, reason: error?.code || status || "unknown" });
     if (error?.code === "email_not_confirmed") {
       throw ApiError.forbidden("This email address has not been confirmed yet.");
     }
@@ -60,13 +64,13 @@ export async function login(input, { supabase, ipAddress } = {}) {
   if (!appUser) {
     // Valid Supabase identity but no dashboard role: end the session immediately.
     await supabase.auth.signOut({ scope: "local" }).catch(() => {});
-    console.warn(`[auth] ${email} authenticated but has no dashboard access`);
+    log.warn("auth.login_no_access", { email: maskEmail(email), ip });
     throw ApiError.forbidden("This account does not have access to the staff dashboard.");
   }
 
   users.updateLastLogin(appUser.id).catch(() => {});
-  clearLoginRateLimit(limitKey);
-  console.info(`[auth] ${appUser.role} ${appUser.email} signed in`);
+  await clearRateLimit("login:identity", identityKey);
+  log.info("auth.login", { role: appUser.role, userId: appUser.id, ip });
   return { user: toPublicUser(appUser), expiresAt: data.session?.expires_at ? new Date(data.session.expires_at * 1000) : null };
 }
 
@@ -75,7 +79,7 @@ export async function logout({ supabase } = {}) {
   if (supabase) {
     const { error } = await supabase.auth.signOut({ scope: "local" });
     if (error && error.status !== 401 && error.status !== 403) {
-      console.warn(`[auth] Sign-out warning: ${error.message}`);
+      log.warn("auth.logout_warning", { reason: error.message });
     }
   }
   return { signedOut: true };

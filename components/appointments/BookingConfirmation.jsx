@@ -5,19 +5,21 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { formatLongDate, formatTime12h } from "@/lib/dates";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
 
 const nextSteps = [
-  "Check your email for a confirmation message with your reference number.",
+  "Keep your reference number. You will need it if you want to change or cancel the appointment.",
   "Our team reviews new requests during opening hours and will contact you if anything needs to change.",
   "Please arrive a few minutes early and bring a photo ID and any relevant records.",
 ];
 
 /**
  * Step 7: confirmation. Displays the reference returned by the API.
+ * Wording is deliberately honest: the request is recorded, no email is
+ * promised unless notifications are configured.
  */
-export function BookingConfirmation({ confirmation, onBookAnother }) {
+export function BookingConfirmation({ confirmation, clinic, onBookAnother }) {
   const { reference, doctor, service, date, time, patient } = confirmation;
+  const location = clinic?.address ? `${clinic.address.line1}, ${clinic.address.city}` : null;
 
   return (
     <div className="animate-slide-up" role="status" aria-live="polite">
@@ -27,8 +29,8 @@ export function BookingConfirmation({ confirmation, onBookAnother }) {
         </span>
         <h2 className="mt-5 text-2xl font-bold text-slate-900 sm:text-3xl">Your appointment request is in</h2>
         <p className="mx-auto mt-3 max-w-md text-base text-slate-600">
-          Thank you, {patient.fullName.split(" ")[0]}. We have received your request and sent a confirmation to{" "}
-          <span className="font-medium text-slate-900">{patient.email}</span>.
+          Thank you, {patient.fullName.split(" ")[0]}. Your request has been recorded for the clinic team. We will use{" "}
+          <span className="font-medium text-slate-900">{patient.email}</span> if we need to reach you.
         </p>
         <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold tracking-wide text-white">
           Reference <span className="font-mono text-accent-300">{reference}</span>
@@ -41,7 +43,7 @@ export function BookingConfirmation({ confirmation, onBookAnother }) {
           { icon: Stethoscope, label: "Service", value: service.name },
           { icon: CalendarDays, label: "Date", value: formatLongDate(date) },
           { icon: Clock, label: "Time", value: formatTime12h(time) },
-          { icon: MapPin, label: "Location", value: `${clinic.address.line1}, ${clinic.address.city}` },
+          ...(location ? [{ icon: MapPin, label: "Location", value: location }] : []),
           { icon: Mail, label: "Contact", value: patient.email },
         ].map((item) => (
           <div key={item.label} className="flex items-start gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200/80">

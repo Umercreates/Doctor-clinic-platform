@@ -4,6 +4,8 @@
  * is PostgreSQL.
  */
 
+export const DOCTOR_PHOTO_PLACEHOLDER = "/images/doctors/placeholder.svg";
+
 /** TIME columns come back as "HH:MM:SS"; the app uses "HH:MM". */
 export function toHm(value) {
   if (!value) return null;
@@ -47,8 +49,9 @@ export function toDoctor(row) {
     isLead: row.is_lead,
     location: row.location,
     photo: {
-      src: row.photo_url,
-      alt: row.photo_alt || `Portrait of ${row.name}`,
+      // Doctors created without a photo get a neutral placeholder so <Image> always has a src.
+      src: row.photo_url || DOCTOR_PHOTO_PLACEHOLDER,
+      alt: row.photo_alt || (row.photo_url ? `Portrait of ${row.name}` : `${row.name} (no photo yet)`),
       position: row.photo_position || "50% 30%",
     },
     shortBio: row.short_bio,
@@ -81,6 +84,8 @@ export function toService(row) {
     description: row.description || [],
     highlights: row.highlights || [],
     doctorIds: row.doctor_ids || [],
+    /** Includes inactive doctors; used by the admin editor. */
+    allDoctorIds: row.all_doctor_ids || row.doctor_ids || [],
     isDemo: row.is_demo,
     sortOrder: row.sort_order,
     isActive: row.is_active,
@@ -91,7 +96,9 @@ export function toService(row) {
 
 export function toFaq(row) {
   return {
+    // Public components key by `id` (the stable slug-like key); the dashboard uses `uuid`.
     id: row.key,
+    key: row.key,
     uuid: row.id,
     category: row.category,
     question: row.question,
@@ -99,6 +106,7 @@ export function toFaq(row) {
     featured: row.featured,
     sortOrder: row.sort_order,
     isActive: row.is_active,
+    updatedAt: row.updated_at,
   };
 }
 

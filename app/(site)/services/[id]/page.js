@@ -12,32 +12,33 @@ import { Icon } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { DemoNotice } from "@/components/ui/DemoNotice";
 import { buildMetadata } from "@/lib/metadata";
-import { buildBreadcrumbJsonLd } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildServiceJsonLd } from "@/lib/seo";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
-import { getServiceBySlug, listServices } from "@/server/repositories/servicesRepository";
+import { getServiceBySlug } from "@/server/repositories/servicesRepository";
 import { listDoctorsByService } from "@/server/repositories/doctorsRepository";
+import { getClinicSettings, getPublicServices } from "@/server/services/contentService";
 
 /**
- * Every published service is pre-rendered from the catalogue; unknown slugs return
- * a real 404 at the router. When profiles come from PostgreSQL (backend phase),
- * switch to `dynamicParams = true` with `revalidate` or on-demand revalidation.
+ * Every active service is pre-rendered at build time. Services added later are
+ * rendered on first request (dynamicParams) and cached until the dashboard
+ * revalidates them; unknown slugs return a real 404.
  */
-export const dynamicParams = false;
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  const services = await listServices();
+  const services = await getPublicServices();
   return services.map((service) => ({ id: service.slug }));
 }
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
-  const service = await getServiceBySlug(id);
+  const [service, clinic] = await Promise.all([getServiceBySlug(id), getClinicSettings()]);
   if (!service) notFound();
   return buildMetadata({
     title: service.name,
     description: `${service.shortDescription} Book ${service.name.toLowerCase()} at ${clinic.name} in ${clinic.city}, ${clinic.stateFull}.`,
     path: routes.service(service.slug),
+    siteName: clinic.name,
   });
 }
 
@@ -46,16 +47,19 @@ export default async function ServicePage({ params }) {
   const service = await getServiceBySlug(id);
   if (!service) notFound();
 
-  const doctors = await listDoctorsByService(service.id);
+  const [clinic, doctors] = await Promise.all([getClinicSettings(), listDoctorsByService(service.id)]);
   const bookHref = routes.bookWith({ service: service.slug });
 
   return (
     <>
       <JsonLd
-        data={buildBreadcrumbJsonLd([
-          { label: "Services", href: routes.services },
-          { label: service.name, href: routes.service(service.slug) },
-        ])}
+        data={[
+          buildServiceJsonLd(service, clinic),
+          buildBreadcrumbJsonLd([
+            { label: "Services", href: routes.services },
+            { label: service.name, href: routes.service(service.slug) },
+          ]),
+        ]}
       />
       <PageHeader
         eyebrow="Service"

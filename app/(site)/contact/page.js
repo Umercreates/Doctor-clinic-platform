@@ -12,15 +12,22 @@ import { Card } from "@/components/ui/Card";
 import { DemoNotice } from "@/components/ui/DemoNotice";
 import { buildMetadata } from "@/lib/metadata";
 import { routes } from "@/lib/routes";
-import { clinic, DEMO_CLINIC_NOTICE } from "@/data/clinic";
+import { DEMO_CLINIC_NOTICE } from "@/data/clinic";
+import { getClinicSettings } from "@/server/services/contentService";
 
-export const metadata = buildMetadata({
-  title: "Contact",
-  description: `Contact ${clinic.name} in ${clinic.city}, ${clinic.stateFull}. Phone, email, address, opening hours, and a contact form for non-urgent questions.`,
-  path: routes.contact,
-});
+export async function generateMetadata() {
+  const clinic = await getClinicSettings();
+  return buildMetadata({
+    title: "Contact",
+    description: `Contact ${clinic.name} in ${clinic.city}, ${clinic.stateFull}. Phone, email, address, opening hours, and a contact form for non-urgent questions.`,
+    path: routes.contact,
+    siteName: clinic.name,
+  });
+}
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const clinic = await getClinicSettings();
+  const detailsAreDemo = Boolean(clinic.address?.isDemo || clinic.contact?.isDemo);
   return (
     <>
       <PageHeader
@@ -49,8 +56,8 @@ export default function ContactPage() {
             <Reveal>
               <Card className="p-6 sm:p-7">
                 <h2 className="text-lg font-semibold text-slate-900">Clinic information</h2>
-                <ContactDetails className="mt-5" showFax />
-                <DemoNotice text={DEMO_CLINIC_NOTICE} className="mt-6" />
+                <ContactDetails clinic={clinic} className="mt-5" showFax />
+                {detailsAreDemo && <DemoNotice text={DEMO_CLINIC_NOTICE} className="mt-6" />}
               </Card>
             </Reveal>
             <Reveal delay={100}>
@@ -59,8 +66,8 @@ export default function ContactPage() {
                   <Clock className="h-4.5 w-4.5 text-brand-600" aria-hidden="true" />
                   Opening hours
                 </h2>
-                <OpeningHours className="mt-3" />
-                <DemoNotice text="Demo opening hours — replace with verified schedule." className="mt-4" />
+                <OpeningHours clinic={clinic} className="mt-3" />
+                {clinic.hours?.isDemo && <DemoNotice text="Demo opening hours — replace with verified schedule." className="mt-4" />}
               </Card>
             </Reveal>
           </div>
@@ -73,7 +80,7 @@ export default function ContactPage() {
                   For non-urgent questions. We typically respond within one business day.
                 </p>
                 <div className="mt-7">
-                  <ContactForm />
+                  <ContactForm clinic={clinic} />
                 </div>
               </Card>
             </Reveal>
@@ -83,7 +90,7 @@ export default function ContactPage() {
 
       <Section tone="muted" padding="compact" aria-label="Map">
         <Reveal>
-          <MapSection />
+          <MapSection clinic={clinic} />
         </Reveal>
       </Section>
 

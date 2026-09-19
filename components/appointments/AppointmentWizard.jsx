@@ -19,7 +19,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useHydrated } from "@/hooks/useHydrated";
 import { api } from "@/lib/api";
 import { validatePatientDetails } from "@/lib/validation/appointment";
-import { clinic } from "@/data/clinic";
 
 const PATIENT_FORM_ID = "booking-patient-form";
 
@@ -32,7 +31,7 @@ function furthestReachableStep(state) {
   return STEP_INDEX.review;
 }
 
-function WizardBody() {
+function WizardBody({ rules, clinic }) {
   const { state, dispatch, doctors, availableServices, doctor, service } = useBooking();
   const hydrated = useHydrated();
   const topRef = useRef(null);
@@ -124,6 +123,7 @@ function WizardBody() {
           <DateSelector
             doctor={doctor}
             service={service}
+            rules={rules}
             value={state.date}
             onChange={(date) => dispatch({ type: "SET_DATE", date })}
           />
@@ -169,12 +169,12 @@ function WizardBody() {
             />
             <p className="flex items-start gap-2 text-xs leading-relaxed text-slate-500">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-600" aria-hidden="true" />
-              By confirming you agree to be contacted about this appointment. {clinic.emergencyNotice}
+              By confirming you agree to be contacted about this appointment. {clinic?.emergencyNotice}
             </p>
           </div>
         );
       case "confirmation":
-        return <BookingConfirmation confirmation={state.confirmation} onBookAnother={() => dispatch({ type: "RESET" })} />;
+        return <BookingConfirmation confirmation={state.confirmation} clinic={clinic} onBookAnother={() => dispatch({ type: "RESET" })} />;
       default:
         return null;
     }
@@ -237,9 +237,11 @@ function WizardBody() {
           <aside className="lg:col-span-4" aria-label="Appointment summary">
             <div className="lg:sticky lg:top-28">
               <AppointmentSummary doctor={doctor} service={service} date={state.date} time={state.time} mode="sidebar" />
-              <p className="mt-4 text-xs leading-relaxed text-slate-500">
-                Need help? Call {clinic.contact.phone} during opening hours.
-              </p>
+              {clinic?.contact?.phone && (
+                <p className="mt-4 text-xs leading-relaxed text-slate-500">
+                  Need help? Call <a href={clinic.contact.phoneHref} className="font-medium text-slate-700 underline-offset-2 hover:underline">{clinic.contact.phone}</a> during opening hours.
+                </p>
+              )}
             </div>
           </aside>
         )}
@@ -253,10 +255,10 @@ function WizardBody() {
  * Receives the doctor/service catalogue from the server (later: the API) and
  * optional prefills from the URL (?doctor=slug&service=slug).
  */
-export function AppointmentWizard({ doctors, services, initialDoctor, initialService }) {
+export function AppointmentWizard({ doctors, services, initialDoctor, initialService, bookingRules, clinic }) {
   return (
     <BookingProvider doctors={doctors} services={services} initialDoctor={initialDoctor} initialService={initialService}>
-      <WizardBody />
+      <WizardBody rules={bookingRules} clinic={clinic} />
     </BookingProvider>
   );
 }

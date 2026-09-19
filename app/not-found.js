@@ -4,7 +4,7 @@ import { Footer } from "@/components/footer/Footer";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { routes } from "@/lib/routes";
-import { listServices } from "@/server/repositories/servicesRepository";
+import { getClinicSettings, getPublicServices, getSiteContent } from "@/server/services/contentService";
 
 export const metadata = {
   title: "Page not found",
@@ -12,10 +12,10 @@ export const metadata = {
 };
 
 export default async function NotFound() {
-  const services = await listServices();
+  const [services, clinic, content] = await Promise.all([getPublicServices().catch(() => []), getClinicSettings(), getSiteContent()]);
   return (
     <>
-      <Navbar />
+      <Navbar clinic={clinic} />
       <main id="main-content" className="flex flex-1 items-center overflow-x-clip bg-hero-glow">
         <Container className="py-20 sm:py-28">
           <div className="mx-auto max-w-xl text-center animate-slide-up">
@@ -41,7 +41,7 @@ export default async function NotFound() {
           </div>
         </Container>
       </main>
-      <Footer services={services} />
+      <Footer services={services} clinic={clinic} content={content.footer} />
     </>
   );
 }

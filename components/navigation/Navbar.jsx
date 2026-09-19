@@ -9,10 +9,10 @@ import { Button } from "@/components/ui/Button";
 import { NavLink } from "./NavLink";
 import { MobileMenu } from "./MobileMenu";
 import { primaryNavigation, routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
 import { cn } from "@/lib/utils";
 
-export function Navbar() {
+/** Sticky site header. `clinic` is the public clinic profile from website settings. */
+export function Navbar({ clinic }) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -81,7 +81,7 @@ export function Navbar() {
 
       <Container>
         <div className="flex h-[4.25rem] items-center justify-between gap-4 lg:h-20">
-          <Logo priority size={42} showDescriptor />
+          <Logo clinic={clinic} priority size={42} showDescriptor />
 
           <nav aria-label="Primary" className="hidden lg:block">
             <ul className="flex items-center gap-1">
@@ -137,7 +137,7 @@ export function Navbar() {
         </div>
       </Container>
 
-      <MobileMenu open={open} onClose={close} />
+      <MobileMenu open={open} onClose={close} clinic={clinic} />
     </header>
   );
 }

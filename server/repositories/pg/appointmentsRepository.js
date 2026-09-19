@@ -6,7 +6,7 @@
  * appointments per doctor (see migration 0001), so a race between two bookings
  * surfaces as a 409 conflict rather than a double booking.
  */
-import { query, queryOne, queryRows, withTransaction } from "@/lib/database";
+import { likePattern, query, queryOne, queryRows, withTransaction } from "@/lib/database";
 import { generateReference } from "@/lib/utils";
 import { toAppointment } from "./mappers";
 import { upsertPatient } from "./patientsRepository";
@@ -156,9 +156,9 @@ export async function listAppointments(f = {}) {
   if (f.from) add("a.appointment_date >= ?", f.from);
   if (f.to) add("a.appointment_date <= ?", f.to);
   if (f.search) {
-    params.push(`%${f.search}%`);
+    params.push(likePattern(f.search));
     const i = params.length;
-    where.push(`(p.full_name ILIKE $${i} OR p.email ILIKE $${i} OR a.reference ILIKE $${i})`);
+    where.push(`(p.full_name ILIKE $${i} ESCAPE '\\' OR p.email ILIKE $${i} ESCAPE '\\' OR a.reference ILIKE $${i} ESCAPE '\\')`);
   }
 
   const limit = Math.min(Math.max(Number(f.limit) || 25, 1), 100);
@@ -181,6 +181,15 @@ export async function countAppointmentsByStatus({ doctorId } = {}) {
   const counts = Object.fromEntries(APPOINTMENT_STATUSES.map((s) => [s, 0]));
   for (const r of rows) counts[r.status] = r.count;
   return counts;
+}
+
+/** Active appointments with a date in [from, to] (inclusive). */
+export async function countAppointmentsInRange(from, to, { doctorId } = {}) {
+  const row = await queryOne(
+    `SELECT count(*)::int AS total FROM appointments WHERE appointment_date BETWEEN $1 AND $2 AND status = ANY($3::appointment_status[]) ${doctorId ? "AND doctor_id = $4" : ""}`,
+    doctorId ? [from, to, BLOCKING_STATUSES, doctorId] : [from, to, BLOCKING_STATUSES],
+  );
+  return row.total;
 }
 
 export async function countAppointmentsOnDate(date, { doctorId } = {}) {

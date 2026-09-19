@@ -1,5 +1,6 @@
 import { ApiError } from "@/server/http/errors";
 import { ok, withErrorHandling } from "@/server/http/response";
+import { enforceIpRateLimit } from "@/server/security/rateLimit";
 import { getAvailability } from "@/server/services/availabilityService";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
  * the doctor's schedule, exceptions and existing appointments.
  */
 export const GET = withErrorHandling(async (request) => {
+  await enforceIpRateLimit(request, "availability:ip");
   const { searchParams } = new URL(request.url);
   const doctorId = searchParams.get("doctor");
   const serviceId = searchParams.get("service");

@@ -2,15 +2,19 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { LegalContent } from "@/components/layout/LegalContent";
 import { buildMetadata } from "@/lib/metadata";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
+import { getClinicSettings } from "@/server/services/contentService";
 
-export const metadata = buildMetadata({
-  title: "Terms of use",
-  description: `Terms of use for the ${clinic.name} website and online appointment booking.`,
-  path: routes.terms,
-});
+export async function generateMetadata() {
+  const clinic = await getClinicSettings();
+  return buildMetadata({
+    title: "Terms of use",
+    description: `Terms of use for the ${clinic.name} website and online appointment booking.`,
+    path: routes.terms,
+    siteName: clinic.name,
+  });
+}
 
-const sections = [
+const buildSections = (clinic) => [
   {
     title: "Use of this website",
     body: "This website provides general information about the practice and lets you request appointments online. Submitting a request does not guarantee a specific time until it is confirmed by the clinic.",
@@ -29,7 +33,9 @@ const sections = [
   },
 ];
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const clinic = await getClinicSettings();
+  const sections = buildSections(clinic);
   return (
     <>
       <PageHeader compact eyebrow="Legal" title="Terms of use" breadcrumbs={[{ label: "Terms" }]} />

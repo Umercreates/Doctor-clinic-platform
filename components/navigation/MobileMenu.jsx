@@ -5,10 +5,9 @@ import { CalendarCheck, Mail, Phone } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { Button } from "@/components/ui/Button";
 import { primaryNavigation, routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
 import { cn } from "@/lib/utils";
 
-export function MobileMenu({ open, onClose }) {
+export function MobileMenu({ open, onClose, clinic }) {
   const firstLinkRef = useRef(null);
 
   useEffect(() => {

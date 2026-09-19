@@ -14,7 +14,9 @@
     "db:migrate:status": "node lib/database/migrate.mjs status",
     "db:seed": "node lib/database/seed.mjs",
     "db:setup": "npm run db:migrate && npm run db:seed",
-    "db:reset": "node lib/database/reset.mjs"
+    "db:reset": "node lib/database/reset.mjs",
+    "verify:auth": "node scripts/verify-auth.mjs",
+    "verify:security": "node scripts/verify-security.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

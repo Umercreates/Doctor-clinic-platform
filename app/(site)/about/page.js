@@ -12,24 +12,32 @@ import { Icon } from "@/components/ui/Icon";
 import { DemoNotice } from "@/components/ui/DemoNotice";
 import { buildMetadata } from "@/lib/metadata";
 import { routes } from "@/lib/routes";
-import { clinic, mission, vision, practiceValues, careApproach } from "@/data/clinic";
-import { getLeadDoctor, listDoctors } from "@/server/repositories/doctorsRepository";
+import { getClinicSettings, getLeadDoctorCached, getPublicDoctors, getSiteContent } from "@/server/services/contentService";
 
-export const metadata = buildMetadata({
-  title: "About the practice",
-  description: `Learn about ${clinic.name}, a patient-centered medical practice in ${clinic.city}, ${clinic.stateFull}, led by Dr. Williams. Our mission, values, and approach to care.`,
-  path: routes.about,
-});
+export async function generateMetadata() {
+  const [clinic, leadDoctor] = await Promise.all([getClinicSettings(), getLeadDoctorCached()]);
+  const led = leadDoctor ? `, led by ${leadDoctor.name}` : "";
+  return buildMetadata({
+    title: "About the practice",
+    description: `Learn about ${clinic.name}, a patient-centered medical practice in ${clinic.city}, ${clinic.stateFull}${led}. Our mission, values, and approach to care.`,
+    path: routes.about,
+    siteName: clinic.name,
+  });
+}
 
 export default async function AboutPage() {
-  const [leadDoctor, doctors] = await Promise.all([getLeadDoctor(), listDoctors()]);
+  const [clinic, content, leadDoctor, doctors] = await Promise.all([getClinicSettings(), getSiteContent(), getLeadDoctorCached(), getPublicDoctors()]);
+  const intro = content["about.intro"];
+  const purpose = content["about.mission"];
+  const values = content["about.values"];
+  const approach = content["about.approach"];
 
   return (
     <>
       <PageHeader
-        eyebrow="About"
-        title={`A medical practice built around the patient`}
-        description={`${clinic.name} was founded on a simple belief: the best care starts with listening. We are a private practice in ${clinic.city}, ${clinic.stateFull}, led by ${leadDoctor.name}.`}
+        eyebrow={intro.eyebrow}
+        title={intro.title}
+        description={intro.description}
         breadcrumbs={[{ label: "About" }]}
         actions={
           <>
@@ -43,24 +51,23 @@ export default async function AboutPage() {
         }
       />
 
-      {/* Practice introduction + Dr. Williams */}
+      {/* Practice introduction + lead doctor */}
       <Section tone="white" aria-labelledby="practice-intro">
-        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
-          <div className="lg:col-span-7">
+        <div className={`grid items-center gap-12 lg:gap-16 ${leadDoctor ? "lg:grid-cols-12" : ""}`}>
+          <div className={leadDoctor ? "lg:col-span-7" : ""}>
             <Reveal>
-              <SectionHeading
-                eyebrow="The practice"
-                title="Unhurried appointments, clear answers, and a team that knows you"
-                description={`Every part of ${clinic.name} is designed to make seeing a doctor calmer and simpler: online booking, a comfortable clinic environment, and appointments that leave time for your questions.`}
-              />
+              <SectionHeading eyebrow={intro.sectionEyebrow} title={intro.sectionTitle} description={intro.sectionDescription} />
             </Reveal>
-            <Reveal delay={100} className="prose-slate mt-8 space-y-4 text-[0.95rem] leading-relaxed text-slate-600 sm:text-base">
-              {leadDoctor.bio.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-              <DemoNotice text="Biography is demo content pending verified information from the practice." />
-            </Reveal>
+            {leadDoctor && (
+              <Reveal delay={100} className="prose-slate mt-8 space-y-4 text-[0.95rem] leading-relaxed text-slate-600 sm:text-base">
+                {leadDoctor.bio.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+                {leadDoctor.bioIsDemo && <DemoNotice text="Biography is demo content pending verified information from the practice." />}
+              </Reveal>
+            )}
           </div>
+          {leadDoctor && (
           <Reveal variant="right" className="lg:col-span-5">
             <div className="relative mx-auto max-w-sm lg:max-w-none">
               <div className="relative aspect-[4/4.6] overflow-hidden rounded-[2rem] bg-slate-100 shadow-card ring-1 ring-slate-900/10">
@@ -87,6 +94,7 @@ export default async function AboutPage() {
               </div>
             </div>
           </Reveal>
+          )}
         </div>
       </Section>
 
@@ -101,14 +109,14 @@ export default async function AboutPage() {
               <Target className="h-5.5 w-5.5" aria-hidden="true" />
             </span>
             <h3 className="mt-5 text-xl font-semibold text-slate-900">Mission</h3>
-            <p className="mt-3 text-base leading-relaxed text-slate-600">{mission}</p>
+            <p className="mt-3 text-base leading-relaxed text-slate-600">{purpose.mission}</p>
           </Reveal>
           <Reveal delay={160} className="rounded-3xl border border-slate-200/80 bg-white p-8 shadow-soft">
             <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-50 text-accent-600 ring-1 ring-inset ring-accent-100">
               <Compass className="h-5.5 w-5.5" aria-hidden="true" />
             </span>
             <h3 className="mt-5 text-xl font-semibold text-slate-900">Vision</h3>
-            <p className="mt-3 text-base leading-relaxed text-slate-600">{vision}</p>
+            <p className="mt-3 text-base leading-relaxed text-slate-600">{purpose.vision}</p>
           </Reveal>
         </div>
       </Section>
@@ -118,19 +126,15 @@ export default async function AboutPage() {
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-4">
             <Reveal className="lg:sticky lg:top-28">
-              <SectionHeading
-                eyebrow="Values"
-                title="What guides every visit"
-                description="Four principles shape how we work with patients and with each other."
-              />
+              <SectionHeading eyebrow={values.eyebrow} title={values.title} description={values.description} />
             </Reveal>
           </div>
           <ul className="grid gap-5 sm:grid-cols-2 lg:col-span-8">
-            {practiceValues.map((value, index) => (
-              <Reveal as="li" key={value.id} delay={index * 80}>
+            {values.items.map((value, index) => (
+              <Reveal as="li" key={`${index}-${value.title}`} delay={index * 80}>
                 <div className="group h-full rounded-3xl border border-slate-200/80 bg-white p-6 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-200 hover:shadow-lift">
                   <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 transition-colors group-hover:bg-brand-600 group-hover:text-white">
-                    <Icon name={value.icon} className="h-5 w-5" />
+                    <Icon name={value.icon || "check"} className="h-5 w-5" />
                   </span>
                   <h3 className="mt-4 text-lg font-semibold text-slate-900">{value.title}</h3>
                   <p className="mt-1.5 text-[0.95rem] leading-relaxed text-slate-600">{value.description}</p>
@@ -144,16 +148,11 @@ export default async function AboutPage() {
       {/* Patient care approach */}
       <Section tone="subtle" aria-labelledby="approach-heading">
         <Reveal>
-          <SectionHeading
-            eyebrow="Patient care approach"
-            title="How we work with you"
-            description="A consistent approach to every appointment, from the first hello to the follow-up."
-            align="center"
-          />
+          <SectionHeading eyebrow={approach.eyebrow} title={approach.title} description={approach.description} align="center" />
         </Reveal>
         <ol className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {careApproach.map((step, index) => (
-            <Reveal as="li" key={step.id} delay={index * 90}>
+          {approach.steps.map((step, index) => (
+            <Reveal as="li" key={`${index}-${step.title}`} delay={index * 90}>
               <div className="h-full rounded-3xl border border-slate-200/80 bg-white p-6 shadow-soft">
                 <Badge variant="accent">Step {index + 1}</Badge>
                 <h3 className="mt-4 text-lg font-semibold text-slate-900">{step.title}</h3>
@@ -171,7 +170,7 @@ export default async function AboutPage() {
             <SectionHeading
               eyebrow="Our team"
               title="The doctors you will meet"
-              description="Three doctors, one shared approach to attentive, patient-centered care."
+              description={`${doctors.length === 1 ? "One doctor" : `${doctors.length} doctors`}, one shared approach to attentive, patient-centered care.`}
             />
           </Reveal>
           <Reveal delay={120} className="shrink-0">

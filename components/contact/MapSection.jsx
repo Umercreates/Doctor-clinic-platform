@@ -1,13 +1,14 @@
 import { MapPin } from "lucide-react";
 import { DemoNotice } from "@/components/ui/DemoNotice";
-import { clinic, DEMO_CLINIC_NOTICE } from "@/data/clinic";
+import { DEMO_CLINIC_NOTICE } from "@/data/clinic";
 import { cn } from "@/lib/utils";
 
 /**
  * Embedded map of the clinic area. Uses the keyless Google Maps embed URL and
- * loads lazily. The query is the city until a verified address is supplied.
+ * loads lazily. The query comes from the address settings (city until a
+ * verified address is supplied).
  */
-export function MapSection({ className, height = 420 }) {
+export function MapSection({ clinic, className, height = 420 }) {
   const src = `https://www.google.com/maps?q=${encodeURIComponent(clinic.address.mapQuery)}&z=12&output=embed`;
   return (
     <div className={cn("overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft", className)}>
@@ -16,7 +17,7 @@ export function MapSection({ className, height = 420 }) {
           <MapPin className="h-4 w-4 text-brand-600" aria-hidden="true" />
           {clinic.city}, {clinic.stateFull}
         </p>
-        <DemoNotice text={DEMO_CLINIC_NOTICE} />
+        {clinic.address?.isDemo && <DemoNotice text={DEMO_CLINIC_NOTICE} />}
       </div>
       <iframe
         title={`Map of ${clinic.name} location area in ${clinic.city}`}

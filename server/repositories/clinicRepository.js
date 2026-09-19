@@ -12,3 +12,4 @@ const impl = isDatabaseConfigured() ? pg : demo;
 export const getClinic = (...args) => impl.getClinic(...args);
 export const getSetting = (...args) => impl.getSetting(...args);
 export const setSetting = (...args) => impl.setSetting(...args);
+export const listSettings = (...args) => impl.listSettings(...args);

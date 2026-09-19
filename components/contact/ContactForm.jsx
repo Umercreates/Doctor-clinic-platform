@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { api } from "@/lib/api";
 import { CONTACT_LIMITS, CONTACT_TOPICS, validateContactMessage } from "@/lib/validation/contact";
-import { clinic } from "@/data/clinic";
 
 const initialValues = { fullName: "", email: "", phone: "", topic: "general", message: "" };
 
-export function ContactForm() {
+export function ContactForm({ clinic }) {
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("idle"); // idle | submitting | success | error
@@ -59,7 +58,7 @@ export function ContactForm() {
           <span className="font-semibold text-slate-900">{result?.reference}</span>.
         </p>
         <p className="mt-3 text-xs text-slate-500">
-          Demo environment: messages are not yet delivered to the clinic inbox.
+          Messages are stored securely for the clinic team. Email notifications are not enabled in this environment.
         </p>
         <Button
           variant="secondary"

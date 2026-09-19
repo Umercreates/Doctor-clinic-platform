@@ -1,5 +1,6 @@
 import { ApiError } from "@/server/http/errors";
 import { ok, withErrorHandling } from "@/server/http/response";
+import { enforceIpRateLimit } from "@/server/security/rateLimit";
 import { getAvailableDays } from "@/server/services/availabilityService";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
  * Public. Dates in the range that still have at least one open slot.
  */
 export const GET = withErrorHandling(async (request) => {
+  await enforceIpRateLimit(request, "availability:ip");
   const { searchParams } = new URL(request.url);
   const doctorId = searchParams.get("doctor");
   const serviceId = searchParams.get("service");

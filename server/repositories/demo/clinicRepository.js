@@ -15,3 +15,7 @@ export async function getSetting() {
 export async function setSetting() {
   return notAvailable();
 }
+
+export async function listSettings() {
+  return [];
+}

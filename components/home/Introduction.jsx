@@ -6,30 +6,17 @@ import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 import { DemoNotice } from "@/components/ui/DemoNotice";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
 
-const pillars = [
-  {
-    icon: UserRound,
-    title: "Led by Dr. Williams",
-    description: "A practice built on attentive, personal care and continuity with the same doctor over time.",
-  },
-  {
-    icon: HeartHandshake,
-    title: "Patient-focused approach",
-    description: "We listen first, explain clearly, and plan your care together around your goals.",
-  },
-  {
-    icon: MessageCircle,
-    title: "Clear next steps",
-    description: "You leave every visit knowing what happens next and how to reach us.",
-  },
-];
+const PILLAR_ICONS = [UserRound, HeartHandshake, MessageCircle];
 
-export function Introduction({ doctor }) {
+/** Homepage practice introduction; copy from the `home.introduction` content block. */
+export function Introduction({ doctor, content }) {
+  const pillars = (content.pillars || []).map((pillar, index) => ({ ...pillar, icon: PILLAR_ICONS[index % PILLAR_ICONS.length] }));
+
   return (
     <Section tone="white" aria-labelledby="introduction-heading">
-      <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
+      <div className={`grid items-center gap-12 lg:gap-16 ${doctor ? "lg:grid-cols-12" : ""}`}>
+        {doctor && (
         <Reveal variant="left" className="lg:col-span-5">
           <div className="relative mx-auto max-w-sm lg:max-w-none">
             <div className="relative aspect-[4/4.6] overflow-hidden rounded-[2rem] bg-slate-100 shadow-card ring-1 ring-slate-900/10">
@@ -49,14 +36,11 @@ export function Introduction({ doctor }) {
             </div>
           </div>
         </Reveal>
+        )}
 
-        <div className="lg:col-span-7">
+        <div className={doctor ? "lg:col-span-7" : ""}>
           <Reveal>
-            <SectionHeading
-              eyebrow="About the practice"
-              title={`Welcome to ${clinic.name}, a calmer way to see your doctor`}
-              description={`${clinic.name} is a private medical practice in ${clinic.city}, ${clinic.stateFull}. Every appointment is designed to feel unhurried and personal, from the first conversation to the follow-up.`}
-            />
+            <SectionHeading eyebrow={content.eyebrow} title={content.title} description={content.description} />
           </Reveal>
 
           <ul className="mt-10 grid gap-6 sm:grid-cols-3">
@@ -73,7 +57,7 @@ export function Introduction({ doctor }) {
 
           <Reveal delay={280} className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
             <Button href={routes.about} variant="secondary" rightIcon={ArrowRight}>
-              More about the practice
+              {content.ctaLabel}
             </Button>
             <DemoNotice text="Doctor biographies are demo content pending verified information." />
           </Reveal>

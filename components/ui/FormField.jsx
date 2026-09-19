@@ -126,3 +126,29 @@ export const Select = forwardRef(function Select(
     </FieldShell>
   );
 });
+
+/** Labelled checkbox with optional hint; `checked`/`onChange` as a native input. */
+export const Checkbox = forwardRef(function Checkbox({ id: idProp, label, hint, className, ...props }, ref) {
+  const generatedId = useId();
+  const id = idProp || generatedId;
+  return (
+    <label htmlFor={id} className={cn("flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-slate-300", className)}>
+      <input
+        ref={ref}
+        id={id}
+        type="checkbox"
+        className="mt-0.5 h-4.5 w-4.5 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        {...props}
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-slate-800">{label}</span>
+        {hint && (
+          <span id={`${id}-hint`} className="mt-0.5 block text-xs text-slate-500">
+            {hint}
+          </span>
+        )}
+      </span>
+    </label>
+  );
+});

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { clinic } from "@/data/clinic";
+import { clinic as defaultClinic } from "@/data/clinic";
 import { routes } from "@/lib/routes";
 
 const LOGO_SRC = "/images/logo/logo.png";
@@ -9,8 +9,10 @@ const LOGO_SRC = "/images/logo/logo.png";
 /**
  * Clinic logo lockup: provided logo mark + wordmark.
  * `tone="light"` is used on dark surfaces (footer, CTA sections).
+ * `clinic` (name/descriptor) comes from website settings; defaults are bundled.
  */
 export function Logo({
+  clinic = defaultClinic,
   href = routes.home,
   size = 40,
   tone = "dark",

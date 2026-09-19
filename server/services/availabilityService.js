@@ -23,7 +23,9 @@ import { getDoctorById } from "@/server/repositories/doctorsRepository";
 import { getServiceById } from "@/server/repositories/servicesRepository";
 import * as appointments from "@/server/repositories/appointmentsRepository";
 import * as availability from "@/server/repositories/availabilityRepository";
+import { getBookingRules } from "@/server/services/contentService";
 
+/** Compile-time defaults; the live rules come from `settings.booking` via getBookingRules(). */
 const RULES = APPOINTMENT_LIMITS;
 
 // ---------------------------------------------------------------------------
@@ -90,15 +92,15 @@ export function generateSlots({ windows, booked, slotMinutes, earliestMinutes = 
   return slots;
 }
 
-function bookingWindow() {
+function bookingWindow(rules = RULES) {
   const today = parseIsoDate(todayIso());
-  const max = addDays(today, RULES.maxDaysAhead);
+  const max = addDays(today, rules.maxDaysAhead);
   return { today, max };
 }
 
-function earliestStartFor(date, today, now = new Date()) {
+function earliestStartFor(date, today, rules = RULES, now = new Date()) {
   const isToday = date.getTime() === today.getTime();
-  return isToday ? now.getHours() * 60 + now.getMinutes() + RULES.minLeadMinutes : -1;
+  return isToday ? now.getHours() * 60 + now.getMinutes() + rules.minLeadMinutes : -1;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,11 +125,11 @@ async function loadContext({ doctorId, serviceId }) {
  */
 export async function getAvailability({ doctorId, serviceId, date, excludeAppointmentId = null }, client) {
   if (!isIsoDate(date)) throw ApiError.badRequest("A valid date (YYYY-MM-DD) is required.");
-  const { doctor, service } = await loadContext({ doctorId, serviceId });
-  const slotMinutes = service.durationMinutes || RULES.defaultSlotMinutes;
+  const [{ doctor, service }, rules] = await Promise.all([loadContext({ doctorId, serviceId }), getBookingRules()]);
+  const slotMinutes = service.durationMinutes || rules.defaultSlotMinutes;
 
   const requested = parseIsoDate(date);
-  const { today, max } = bookingWindow();
+  const { today, max } = bookingWindow(rules);
   const base = { doctorId: doctor.id, serviceId: service.id, date, slotMinutes };
   if (requested < today || requested > max) return { ...base, slots: [], reason: "outside-booking-window" };
 
@@ -140,7 +142,7 @@ export async function getAvailability({ doctorId, serviceId, date, excludeAppoin
   const windows = computeWindows({ blocks, exceptions });
   if (!windows.length) return { ...base, slots: [], reason: blocks.length ? "blocked" : "no-schedule" };
 
-  const slots = generateSlots({ windows, booked, slotMinutes, earliestMinutes: earliestStartFor(requested, today) });
+  const slots = generateSlots({ windows, booked, slotMinutes, earliestMinutes: earliestStartFor(requested, today, rules), step: rules.slotStepMinutes });
   return { ...base, slots, reason: slots.some((s) => s.available) ? null : "fully-booked" };
 }
 
@@ -157,9 +159,9 @@ export async function isSlotAvailable({ doctorId, serviceId, date, time, exclude
  */
 export async function getAvailableDays({ doctorId, serviceId, from, to }) {
   if (!isIsoDate(from) || !isIsoDate(to)) throw ApiError.badRequest("from/to must be YYYY-MM-DD.");
-  const { doctor, service } = await loadContext({ doctorId, serviceId });
-  const slotMinutes = service.durationMinutes || RULES.defaultSlotMinutes;
-  const { today, max } = bookingWindow();
+  const [{ doctor, service }, rules] = await Promise.all([loadContext({ doctorId, serviceId }), getBookingRules()]);
+  const slotMinutes = service.durationMinutes || rules.defaultSlotMinutes;
+  const { today, max } = bookingWindow(rules);
 
   let start = parseIsoDate(from);
   let end = parseIsoDate(to);
@@ -182,7 +184,7 @@ export async function getAvailableDays({ doctorId, serviceId, from, to }) {
     if (!blocks.length && !dayExceptions.some((e) => e.isAvailable)) continue;
     const windows = computeWindows({ blocks, exceptions: dayExceptions });
     if (!windows.length) continue;
-    const slots = generateSlots({ windows, booked: bookedByDate.get(iso) || [], slotMinutes, earliestMinutes: earliestStartFor(d, today) });
+    const slots = generateSlots({ windows, booked: bookedByDate.get(iso) || [], slotMinutes, earliestMinutes: earliestStartFor(d, today, rules), step: rules.slotStepMinutes });
     if (slots.some((s) => s.available)) days.push(iso);
   }
   return { doctorId: doctor.id, serviceId: service.id, from: toIsoDate(start), to: toIsoDate(end), days };

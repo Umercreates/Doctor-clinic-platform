@@ -2,6 +2,7 @@ import { created, ok, readJson, withErrorHandling } from "@/server/http/response
 import { requirePermission } from "@/server/auth/currentUser";
 import { listDoctors } from "@/server/repositories/doctorsRepository";
 import { createDoctor } from "@/server/services/catalogService";
+import { revalidateDoctors } from "@/server/revalidation";
 
 /** GET /api/v1/doctors — public list of active doctors (admins may pass ?includeInactive=1). */
 export const GET = withErrorHandling(async (request) => {
@@ -20,5 +21,6 @@ export const POST = withErrorHandling(async (request) => {
   await requirePermission(request, "doctors:write");
   const body = await readJson(request);
   const doctor = await createDoctor(body);
+  revalidateDoctors([doctor.slug]);
   return created(doctor);
 });

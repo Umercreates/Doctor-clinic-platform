@@ -21,6 +21,7 @@ export const getAppointmentByReference = (...args) => impl.getAppointmentByRefer
 export const listAppointments = (...args) => impl.listAppointments(...args);
 export const countAppointmentsByStatus = (...args) => impl.countAppointmentsByStatus(...args);
 export const countAppointmentsOnDate = (...args) => impl.countAppointmentsOnDate(...args);
+export const countAppointmentsInRange = (...args) => impl.countAppointmentsInRange(...args);
 export const updateAppointment = (...args) => impl.updateAppointment(...args);
 export const listBookedTimesInRange = (...args) => impl.listBookedTimesInRange(...args);
 export const rescheduleAppointment = (...args) => impl.rescheduleAppointment(...args);

@@ -5,7 +5,7 @@ import { Logo } from "@/components/ui/Logo";
 import { Alert } from "@/components/ui/Alert";
 import { LoginForm } from "@/components/dashboard/LoginForm";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
+import { getClinicSettings } from "@/server/services/contentService";
 import { getCurrentUser } from "@/server/auth/currentUser";
 import { safeNextPath } from "@/server/auth/pageGuards";
 import { isDatabaseConfigured } from "@/lib/database";
@@ -26,13 +26,14 @@ export default async function LoginPage({ searchParams }) {
   if (user) redirect(nextPath);
 
   const authReady = isDatabaseConfigured() && isSupabaseConfigured();
+  const clinic = await getClinicSettings();
 
   return (
     <main id="main-content" className="flex min-h-dvh bg-surface-muted">
       {/* Brand panel */}
       <aside className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-brand-gradient p-12 text-white lg:flex" aria-hidden="true">
         <div className="pointer-events-none absolute -right-24 top-1/3 h-96 w-96 rounded-full bg-accent-400/25 blur-3xl" />
-        <Logo tone="light" size={46} href={routes.home} />
+        <Logo clinic={clinic} tone="light" size={46} href={routes.home} />
         <div className="relative max-w-md">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-300">Staff dashboard</p>
           <h2 className="mt-3 text-4xl font-bold tracking-tight">Manage appointments, patients and the website in one place.</h2>

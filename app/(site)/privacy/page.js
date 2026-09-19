@@ -2,15 +2,19 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { LegalContent } from "@/components/layout/LegalContent";
 import { buildMetadata } from "@/lib/metadata";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
+import { getClinicSettings } from "@/server/services/contentService";
 
-export const metadata = buildMetadata({
-  title: "Privacy policy",
-  description: `How ${clinic.name} collects, uses, and protects the information you share through this website and its appointment booking tools.`,
-  path: routes.privacy,
-});
+export async function generateMetadata() {
+  const clinic = await getClinicSettings();
+  return buildMetadata({
+    title: "Privacy policy",
+    description: `How ${clinic.name} collects, uses, and protects the information you share through this website and its appointment booking tools.`,
+    path: routes.privacy,
+    siteName: clinic.name,
+  });
+}
 
-const sections = [
+const buildSections = (clinic) => [
   {
     title: "Information we collect",
     body: "When you book an appointment or contact us, we collect the details you provide such as your name, email address, phone number, and any notes you include. We use this information only to arrange and manage your care.",
@@ -29,7 +33,9 @@ const sections = [
   },
 ];
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const clinic = await getClinicSettings();
+  const sections = buildSections(clinic);
   return (
     <>
       <PageHeader compact eyebrow="Legal" title="Privacy policy" breadcrumbs={[{ label: "Privacy" }]} />

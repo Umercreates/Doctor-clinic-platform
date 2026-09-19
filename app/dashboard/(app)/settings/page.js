@@ -1,34 +1,40 @@
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { PageTitle } from "@/components/dashboard/PageTitle";
-import { Card } from "@/components/ui/Card";
-import { settingsGroups } from "@/data/dashboard";
+import { SettingsManager } from "@/components/dashboard/settings/SettingsManager";
+import { Alert } from "@/components/ui/Alert";
 import { dashboardRoutes } from "@/lib/routes";
 import { requirePagePermission } from "@/server/auth/pageGuards";
+import { listSettingsForAdmin } from "@/server/services/contentService";
+import { listDoctors } from "@/server/repositories/doctorsRepository";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
 
-export default async function DashboardSettingsPage() {
+/**
+ * Website settings. Only public-facing clinic information is editable here.
+ * Environment secrets (database, Supabase, seed passwords) never reach this
+ * page or its API.
+ */
+export default async function DashboardSettingsPage({ searchParams }) {
   await requirePagePermission("settings:write", dashboardRoutes.settings);
+  const [{ tab }, settings, doctors] = await Promise.all([searchParams, listSettingsForAdmin(), listDoctors()]);
+
   return (
     <>
-      <PageTitle title="Settings" description="Clinic profile, contact details, booking rules, notifications, and staff access." />
-      <ul className="grid gap-4 md:grid-cols-2">
-        {settingsGroups.map((group) => (
-          <li key={group.id}>
-            <Card interactive className="h-full">
-              <Link href={`${dashboardRoutes.settings}#${group.id}`} className="flex h-full items-center justify-between gap-4 p-5">
-                <div>
-                  <h2 className="font-semibold text-slate-900">{group.label}</h2>
-                  <p className="mt-1 text-sm text-slate-600">{group.description}</p>
-                </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
-              </Link>
-            </Card>
-          </li>
-        ))}
-      </ul>
+      <PageTitle
+        title="Settings"
+        description="Clinic profile, contact details, opening hours, notices and booking rules. Saved changes update the public website immediately."
+        demo={false}
+      />
+      <Alert tone="info" className="mb-6" title="What lives here">
+        <span className="inline-flex items-start gap-2">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Public website information only. Staff accounts are managed in Supabase Auth, and environment secrets are never shown or editable in the dashboard.
+          </span>
+        </span>
+      </Alert>
+      <SettingsManager settings={settings} doctors={doctors.map((d) => ({ id: d.id, slug: d.slug, name: d.name }))} initialTab={typeof tab === "string" ? tab : undefined} />
     </>
   );
 }

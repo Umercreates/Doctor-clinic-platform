@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { DemoNotice } from "@/components/ui/DemoNotice";
 import { ContactDetails } from "@/components/contact/ContactDetails";
 import { OpeningHours } from "@/components/contact/OpeningHours";
-import { clinic, DEMO_CLINIC_NOTICE } from "@/data/clinic";
+import { DEMO_CLINIC_NOTICE } from "@/data/clinic";
 import { routes } from "@/lib/routes";
 
-export function ClinicInfo() {
+/** Homepage "visit us" block driven by website settings. */
+export function ClinicInfo({ clinic }) {
   return (
     <Section tone="muted" aria-labelledby="clinic-heading">
       <div className="grid gap-10 lg:grid-cols-12 lg:gap-16">
@@ -33,16 +34,16 @@ export function ClinicInfo() {
         <div className="grid gap-6 sm:grid-cols-2 lg:col-span-7">
           <Reveal delay={80} className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-soft sm:p-7">
             <h3 className="text-base font-semibold text-slate-900">Clinic details</h3>
-            <ContactDetails className="mt-5" />
-            <DemoNotice text={DEMO_CLINIC_NOTICE} className="mt-6" />
+            <ContactDetails clinic={clinic} className="mt-5" />
+            {(clinic.address?.isDemo || clinic.contact?.isDemo) && <DemoNotice text={DEMO_CLINIC_NOTICE} className="mt-6" />}
           </Reveal>
           <Reveal delay={160} className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-soft sm:p-7">
             <h3 className="inline-flex items-center gap-2 text-base font-semibold text-slate-900">
               <Clock className="h-4.5 w-4.5 text-brand-600" aria-hidden="true" />
               Opening hours
             </h3>
-            <OpeningHours className="mt-3" />
-            <DemoNotice text="Demo opening hours — replace with verified schedule." className="mt-4" />
+            <OpeningHours clinic={clinic} className="mt-3" />
+            {clinic.hours?.isDemo && <DemoNotice text="Demo opening hours — replace with verified schedule." className="mt-4" />}
           </Reveal>
         </div>
       </div>

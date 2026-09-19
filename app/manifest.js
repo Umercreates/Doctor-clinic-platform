@@ -1,11 +1,12 @@
-import { clinic } from "@/data/clinic";
 import { siteConfig } from "@/lib/site";
+import { getClinicSettings } from "@/server/services/contentService";
 
-export default function manifest() {
+export default async function manifest() {
+  const clinic = await getClinicSettings();
   return {
     name: `${clinic.name} - ${clinic.descriptor}`,
-    short_name: clinic.name,
-    description: siteConfig.description,
+    short_name: clinic.shortName || clinic.name,
+    description: clinic.description,
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

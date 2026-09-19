@@ -1,12 +1,13 @@
 /**
  * Services repository — PostgreSQL implementation.
  */
-import { query, queryOne, queryRows } from "@/lib/database";
+import { query, queryOne, queryRows, withTransaction } from "@/lib/database";
 import { toService } from "./mappers";
 
 const SERVICE_SELECT = `
   SELECT s.*,
-    COALESCE((SELECT array_agg(ds.doctor_id) FROM doctor_services ds JOIN doctors d ON d.id = ds.doctor_id AND d.is_active WHERE ds.service_id = s.id), '{}') AS doctor_ids
+    COALESCE((SELECT array_agg(ds.doctor_id) FROM doctor_services ds JOIN doctors d ON d.id = ds.doctor_id AND d.is_active WHERE ds.service_id = s.id), '{}') AS doctor_ids,
+    COALESCE((SELECT array_agg(ds.doctor_id) FROM doctor_services ds WHERE ds.service_id = s.id), '{}') AS all_doctor_ids
   FROM services s
 `;
 
@@ -66,19 +67,35 @@ function pick(input) {
   return { columns, values };
 }
 
+/** Replace the set of doctors offering a service (doctor_services join). */
+async function syncDoctors(client, serviceId, doctorIds) {
+  if (!doctorIds) return;
+  await query("DELETE FROM doctor_services WHERE service_id = $1", [serviceId], client);
+  for (const doctorId of doctorIds) {
+    await query("INSERT INTO doctor_services (doctor_id, service_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [doctorId, serviceId], client);
+  }
+}
+
 export async function createService(input) {
   const { columns, values } = pick(input);
   const placeholders = values.map((_, i) => `$${i + 1}`).join(", ");
-  const { rows } = await query(`INSERT INTO services (${columns.join(", ")}) VALUES (${placeholders}) RETURNING id`, values);
-  return getServiceById(rows[0].id, { includeInactive: true });
+  const id = await withTransaction(async (client) => {
+    const { rows } = await query(`INSERT INTO services (${columns.join(", ")}) VALUES (${placeholders}) RETURNING id`, values, client);
+    await syncDoctors(client, rows[0].id, input.doctorIds);
+    return rows[0].id;
+  });
+  return getServiceById(id, { includeInactive: true });
 }
 
 export async function updateService(id, patch) {
   const { columns, values } = pick(patch);
-  if (columns.length) {
-    const sets = columns.map((c, i) => `${c} = $${i + 2}`).join(", ");
-    await query(`UPDATE services SET ${sets} WHERE id = $1`, [id, ...values]);
-  }
+  await withTransaction(async (client) => {
+    if (columns.length) {
+      const sets = columns.map((c, i) => `${c} = $${i + 2}`).join(", ");
+      await query(`UPDATE services SET ${sets} WHERE id = $1`, [id, ...values], client);
+    }
+    await syncDoctors(client, id, patch.doctorIds);
+  });
   return getServiceById(id, { includeInactive: true });
 }
 

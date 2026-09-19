@@ -36,3 +36,8 @@ export async function setSetting(key, value, updatedBy = null) {
   );
   return value;
 }
+
+export async function listSettings() {
+  const rows = await queryRows("SELECT key, value, updated_at FROM website_settings ORDER BY key");
+  return rows.map((r) => ({ key: r.key, value: r.value, updatedAt: r.updated_at }));
+}

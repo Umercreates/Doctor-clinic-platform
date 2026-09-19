@@ -4,7 +4,7 @@ import { Container } from "@/components/layout/Container";
 import { Logo } from "@/components/ui/Logo";
 import { DemoNotice } from "@/components/ui/DemoNotice";
 import { socialIconMap } from "@/components/ui/SocialIcons";
-import { clinic, DEMO_CLINIC_NOTICE } from "@/data/clinic";
+import { DEMO_CLINIC_NOTICE } from "@/data/clinic";
 import { dashboardRoutes, footerNavigation, routes } from "@/lib/routes";
 import { formatTime12h } from "@/lib/dates";
 
@@ -20,10 +20,17 @@ function FooterLink({ href, children }) {
   );
 }
 
-export function Footer({ services = [] }) {
+/**
+ * Site footer. `clinic` comes from website settings and `content` from the
+ * `footer` content block, both loaded once in the site layout.
+ */
+export function Footer({ services = [], clinic, content = {} }) {
   const year = new Date().getFullYear();
   const openDays = clinic.hours.schedule.filter((d) => d.open);
   const closedDays = clinic.hours.schedule.filter((d) => !d.open);
+  const socialLinks = clinic.social?.links || [];
+  const hasRealSocial = socialLinks.some((l) => l.href && l.href !== "#");
+  const clinicIsDemo = Boolean(clinic.address?.isDemo || clinic.contact?.isDemo || clinic.hours?.isDemo);
 
   return (
     <footer className="relative mt-auto bg-brand-950 text-white" aria-labelledby="footer-heading">
@@ -36,16 +43,18 @@ export function Footer({ services = [] }) {
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-8">
           {/* Brand */}
           <div className="lg:col-span-4">
-            <Logo tone="light" size={44} />
-            <p className="mt-5 max-w-sm text-[0.95rem] leading-relaxed text-white/70">{clinic.description}</p>
+            <Logo clinic={clinic} tone="light" size={44} />
+            <p className="mt-5 max-w-sm text-[0.95rem] leading-relaxed text-white/70">{content.description || clinic.description}</p>
             <div className="mt-6 flex items-center gap-2">
-              {clinic.social.links.map((item) => {
+              {socialLinks.map((item) => {
                 const IconComponent = socialIconMap[item.id];
+                const isPlaceholder = !item.href || item.href === "#";
                 return (
                   <a
                     key={item.id}
-                    href={item.href}
-                    aria-label={`${item.label} (placeholder link)`}
+                    href={item.href || "#"}
+                    {...(isPlaceholder ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+                    aria-label={isPlaceholder ? `${item.label} (placeholder link)` : item.label}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
                   >
                     {IconComponent && <IconComponent className="h-4.5 w-4.5" />}
@@ -53,9 +62,7 @@ export function Footer({ services = [] }) {
                 );
               })}
             </div>
-            {clinic.social.isDemo && (
-              <DemoNotice tone="light" text="Social links are placeholders." className="mt-3" />
-            )}
+            {!hasRealSocial && <DemoNotice tone="light" text="Social links are placeholders." className="mt-3" />}
           </div>
 
           {/* Navigation */}
@@ -89,7 +96,8 @@ export function Footer({ services = [] }) {
               <p className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4.5 w-4.5 shrink-0 text-accent-300" aria-hidden="true" />
                 <span>
-                  {clinic.address.line1}, {clinic.address.line2}
+                  {clinic.address.line1}
+                  {clinic.address.line2 ? `, ${clinic.address.line2}` : ""}
                   <br />
                   {clinic.address.city}, {clinic.address.state} {clinic.address.postalCode}
                 </span>
@@ -126,7 +134,7 @@ export function Footer({ services = [] }) {
                 ))}
               </dl>
             </div>
-            <DemoNotice tone="light" text={DEMO_CLINIC_NOTICE} className="mt-4" />
+            {clinicIsDemo && <DemoNotice tone="light" text={DEMO_CLINIC_NOTICE} className="mt-4" />}
           </div>
         </div>
 

@@ -5,7 +5,7 @@
  * authenticated dashboard services and the booking transaction. Only contact
  * details needed for appointment management are stored.
  */
-import { query, queryOne, queryRows } from "@/lib/database";
+import { likePattern, query, queryOne, queryRows } from "@/lib/database";
 import { toPatient } from "./mappers";
 
 export async function findPatientByEmail(email, client) {
@@ -54,8 +54,9 @@ export async function listPatients({ search, doctorId, limit = 25, offset = 0 } 
     where.push(`EXISTS (SELECT 1 FROM appointments a WHERE a.patient_id = p.id AND a.doctor_id = $${params.length})`);
   }
   if (search) {
-    params.push(`%${search}%`);
-    where.push(`(p.full_name ILIKE $${params.length} OR p.email ILIKE $${params.length} OR p.phone ILIKE $${params.length})`);
+    params.push(likePattern(search));
+    const i = params.length;
+    where.push(`(p.full_name ILIKE $${i} ESCAPE '\\' OR p.email ILIKE $${i} ESCAPE '\\' OR p.phone ILIKE $${i} ESCAPE '\\')`);
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);

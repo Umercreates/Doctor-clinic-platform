@@ -10,6 +10,7 @@ import { ApiError } from "@/server/http/errors";
 import { createSupabaseRequestClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import * as users from "@/server/repositories/usersRepository";
 import { can, resolveScope } from "./permissions";
+import { log } from "@/server/log";
 
 /** Map a Supabase auth user to the application user (with role), or null. */
 export async function resolveAppUser(authUser) {
@@ -31,7 +32,7 @@ async function userFromClient(supabase) {
     if (error || !data?.user) return null;
     return resolveAppUser(data.user);
   } catch (error) {
-    console.error("[auth] Failed to resolve user:", error?.message || error);
+    log.error("auth.resolve_failed", { error });
     return null;
   }
 }

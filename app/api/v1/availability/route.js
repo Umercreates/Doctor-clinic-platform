@@ -4,6 +4,7 @@ import { requireScopedPermission, requireUser } from "@/server/auth/currentUser"
 import { isIsoDate } from "@/lib/dates";
 import { isUuid } from "@/lib/validation/common";
 import { createScheduleBlock, listAvailability } from "@/server/services/scheduleService";
+import { revalidateSchedule } from "@/server/revalidation";
 
 export const dynamic = "force-dynamic";
 
@@ -25,5 +26,8 @@ export const GET = withErrorHandling(async (request) => {
 export const POST = withErrorHandling(async (request) => {
   const user = await requireUser(request);
   const body = await readJson(request);
-  return created(await createScheduleBlock(user, body));
+  const block = await createScheduleBlock(user, body);
+  // Weekly hours are shown on the public doctor profile.
+  revalidateSchedule();
+  return created(block);
 });

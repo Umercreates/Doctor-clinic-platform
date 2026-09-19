@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ApiError } from "./errors";
+import { log } from "@/server/log";
 
 /**
  * Standard JSON envelope:
@@ -18,7 +19,11 @@ export function noContent(headers) {
   return new NextResponse(null, { status: 204, headers });
 }
 
-/** Error JSON response with the standard envelope. */
+/**
+ * Error JSON response with the standard envelope. `ApiError`s carry a safe,
+ * user-facing message (and optional `headers`, e.g. Retry-After); anything
+ * else is logged server-side and answered with a generic 500.
+ */
 export function fail(error) {
   if (error instanceof ApiError) {
     return NextResponse.json(
@@ -26,12 +31,12 @@ export function fail(error) {
         success: false,
         error: { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) },
       },
-      { status: error.status },
+      { status: error.status, headers: error.headers },
     );
   }
 
-  // Unknown error: log server-side, never leak internals to the client.
-  console.error("[api] Unhandled error:", error);
+  // Unknown error: log server-side (stack only outside production), never leak internals to the client.
+  log.error("api.unhandled_error", { error, ...(process.env.NODE_ENV !== "production" ? { stack: error?.stack } : {}) });
   return NextResponse.json(
     { success: false, error: { code: "INTERNAL_ERROR", message: "Something went wrong on our side. Please try again." } },
     { status: 500 },

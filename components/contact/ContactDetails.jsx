@@ -1,5 +1,4 @@
 import { Mail, MapPin, Phone, Printer } from "lucide-react";
-import { clinic } from "@/data/clinic";
 import { cn } from "@/lib/utils";
 
 function Row({ icon: IconComponent, label, children }) {
@@ -16,7 +15,8 @@ function Row({ icon: IconComponent, label, children }) {
   );
 }
 
-export function ContactDetails({ className, showFax = false }) {
+/** Address, phone and email rows. `clinic` comes from website settings. */
+export function ContactDetails({ clinic, className, showFax = false }) {
   const { address, contact } = clinic;
   const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     `${address.line1}, ${address.city}, ${address.state} ${address.postalCode}`,
@@ -26,7 +26,8 @@ export function ContactDetails({ className, showFax = false }) {
     <div className={cn("space-y-6", className)}>
       <Row icon={MapPin} label="Address">
         <address className="not-italic leading-relaxed">
-          {address.line1}, {address.line2}
+          {address.line1}
+          {address.line2 ? `, ${address.line2}` : ""}
           <br />
           {address.city}, {address.state} {address.postalCode}, {address.country}
         </address>
@@ -49,7 +50,7 @@ export function ContactDetails({ className, showFax = false }) {
           {contact.email}
         </a>
       </Row>
-      {showFax && (
+      {showFax && contact.fax && (
         <Row icon={Printer} label="Fax">
           {contact.fax}
         </Row>

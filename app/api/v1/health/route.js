@@ -4,15 +4,21 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * GET /api/v1/health — liveness/readiness for uptime monitors. Deliberately
+ * coarse: booleans only, no driver, host, latency or version details.
+ */
 export const GET = withErrorHandling(async () => {
   const database = getDatabaseStatus();
   const ping = await pingDatabase();
-  return ok({
-    status: database.configured && !ping.ok ? "degraded" : "ok",
-    service: "doctor-clinic-api",
-    version: "v1",
-    timestamp: new Date().toISOString(),
-    database: { ...database, reachable: ping.ok, ...(ping.latencyMs !== undefined ? { latencyMs: ping.latencyMs } : {}) },
-    auth: { provider: "supabase", configured: isSupabaseConfigured() },
-  });
+  const healthy = !database.configured || ping.ok;
+  return ok(
+    {
+      status: healthy ? "ok" : "degraded",
+      timestamp: new Date().toISOString(),
+      database: database.configured ? (ping.ok ? "ok" : "unreachable") : "not-configured",
+      auth: isSupabaseConfigured() ? "ok" : "not-configured",
+    },
+    { status: healthy ? 200 : 503, headers: { "Cache-Control": "no-store" } },
+  );
 });

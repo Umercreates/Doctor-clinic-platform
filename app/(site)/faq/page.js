@@ -7,24 +7,29 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { buildMetadata } from "@/lib/metadata";
 import { buildFaqJsonLd } from "@/lib/seo";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
 import { listFaqs, listFaqCategories } from "@/server/repositories/faqsRepository";
+import { getClinicSettings } from "@/server/services/contentService";
 
-export const metadata = buildMetadata({
-  title: "Frequently asked questions",
-  description: `Answers to common questions about booking, visits, and contacting ${clinic.name} in ${clinic.city}. Learn how to book, reschedule, and what to bring.`,
-  path: routes.faq,
-});
+export async function generateMetadata() {
+  const clinic = await getClinicSettings();
+  return buildMetadata({
+    title: "Frequently asked questions",
+    description: `Answers to common questions about booking, visits, and contacting ${clinic.name} in ${clinic.city}. Learn how to book, reschedule, and what to bring.`,
+    path: routes.faq,
+    siteName: clinic.name,
+  });
+}
 
 export default async function FaqPage() {
-  const [faqs, categories] = await Promise.all([listFaqs(), listFaqCategories()]);
+  const [clinic, faqs, categories] = await Promise.all([getClinicSettings(), listFaqs(), listFaqCategories()]);
 
   return (
     <>
-      <JsonLd data={buildFaqJsonLd(faqs)} />
+      {faqs.length > 0 && <JsonLd data={buildFaqJsonLd(faqs)} />}
       <PageHeader
         eyebrow="FAQ"
         title="Frequently asked questions"
@@ -36,7 +41,14 @@ export default async function FaqPage() {
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-8">
             <Reveal>
-              <FaqList faqs={faqs} categories={categories} />
+              {faqs.length ? (
+                <FaqList faqs={faqs} categories={categories} />
+              ) : (
+                <EmptyState
+                  title="No questions published yet"
+                  description="The practice has not published any answers yet. Please contact the clinic and we will be glad to help."
+                />
+              )}
             </Reveal>
           </div>
           <aside className="lg:col-span-4" aria-label="Still have questions">

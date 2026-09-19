@@ -71,5 +71,6 @@ export const getAppointmentById = notAvailable;
 export const listAppointments = notAvailable;
 export const countAppointmentsByStatus = notAvailable;
 export const countAppointmentsOnDate = notAvailable;
+export const countAppointmentsInRange = notAvailable;
 export const updateAppointment = notAvailable;
 export const rescheduleAppointment = notAvailable;

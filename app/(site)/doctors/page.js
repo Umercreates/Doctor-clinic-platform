@@ -7,17 +7,22 @@ import { Button } from "@/components/ui/Button";
 import { DemoNotice } from "@/components/ui/DemoNotice";
 import { buildMetadata } from "@/lib/metadata";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
-import { listDoctors } from "@/server/repositories/doctorsRepository";
+import { getClinicSettings, getPublicDoctors } from "@/server/services/contentService";
 
-export const metadata = buildMetadata({
-  title: "Our doctors",
-  description: `Meet Dr. Williams, Dr. Jones, and Dr. Jennifer, the medical team at ${clinic.name} in ${clinic.city}, ${clinic.stateFull}. View profiles and book an appointment online.`,
-  path: routes.doctors,
-});
+export async function generateMetadata() {
+  const [clinic, doctors] = await Promise.all([getClinicSettings(), getPublicDoctors()]);
+  const names = doctors.map((d) => d.name);
+  const team = names.length ? `Meet ${names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]}, the medical team` : "Meet the medical team";
+  return buildMetadata({
+    title: "Our doctors",
+    description: `${team} at ${clinic.name} in ${clinic.city}, ${clinic.stateFull}. View profiles and book an appointment online.`,
+    path: routes.doctors,
+    siteName: clinic.name,
+  });
+}
 
 export default async function DoctorsPage() {
-  const doctors = await listDoctors();
+  const [clinic, doctors] = await Promise.all([getClinicSettings(), getPublicDoctors()]);
 
   return (
     <>

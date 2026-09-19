@@ -1,37 +1,39 @@
-import { Pencil } from "lucide-react";
 import { PageTitle } from "@/components/dashboard/PageTitle";
-import { DataTable } from "@/components/dashboard/DataTable";
-import { Button } from "@/components/ui/Button";
-import { contentBlocks } from "@/data/dashboard";
-import { requirePagePermission } from "@/server/auth/pageGuards";
+import { ContentManager } from "@/components/dashboard/content/ContentManager";
 import { dashboardRoutes } from "@/lib/routes";
+import { requirePagePermission } from "@/server/auth/pageGuards";
+import { listContentForAdmin } from "@/server/services/contentService";
+import { listFaqs } from "@/server/repositories/faqsRepository";
+import { listTestimonials } from "@/server/repositories/testimonialsRepository";
+import { listDoctors } from "@/server/repositories/doctorsRepository";
 
 export const metadata = { title: "Website content" };
 export const dynamic = "force-dynamic";
 
-const columns = [
-  { key: "label", label: "Section", render: (row) => <span className="font-medium text-slate-900">{row.label}</span> },
-  { key: "description", label: "Description", className: "whitespace-normal min-w-[16rem]" },
-  { key: "key", label: "Key", render: (row) => <span className="font-mono text-xs text-slate-500">{row.key}</span> },
-  { key: "updated", label: "Updated" },
-  {
-    key: "actions",
-    label: "",
-    className: "text-right",
-    render: () => (
-      <Button variant="ghost" size="sm" leftIcon={Pencil}>
-        Edit
-      </Button>
-    ),
-  },
-];
-
-export default async function DashboardContentPage() {
+export default async function DashboardContentPage({ searchParams }) {
   await requirePagePermission("content:write", dashboardRoutes.content);
+  const [{ tab }, sections, faqs, testimonials, doctors] = await Promise.all([
+    searchParams,
+    listContentForAdmin(),
+    listFaqs({ includeInactive: true }),
+    listTestimonials({ publicOnly: false }),
+    listDoctors({ includeInactive: true }),
+  ]);
+
   return (
     <>
-      <PageTitle title="Website content" description="Editable text blocks that feed the public website." />
-      <DataTable columns={columns} rows={contentBlocks} rowKey="key" caption="Editable content blocks" />
+      <PageTitle
+        title="Website content"
+        description="Edit the text shown on the public website, manage FAQs and record patient testimonials. Changes go live as soon as they are saved."
+        demo={false}
+      />
+      <ContentManager
+        sections={sections}
+        faqs={faqs}
+        testimonials={testimonials}
+        doctors={doctors.map((d) => ({ id: d.id, name: d.name }))}
+        initialTab={typeof tab === "string" ? tab : undefined}
+      />
     </>
   );
 }

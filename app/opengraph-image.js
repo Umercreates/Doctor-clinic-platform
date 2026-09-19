@@ -1,13 +1,15 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { clinic } from "@/data/clinic";
+import { clinic as defaultClinic } from "@/data/clinic";
+import { getClinicSettings } from "@/server/services/contentService";
 
-export const alt = `${clinic.name} - ${clinic.descriptor} in ${clinic.city}`;
+export const alt = `${defaultClinic.name} - ${defaultClinic.descriptor} in ${defaultClinic.city}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpenGraphImage() {
+  const clinic = await getClinicSettings();
   const logoBuffer = await readFile(path.join(process.cwd(), "public", "images", "logo", "logo.png"));
   const logoSrc = `data:image/png;base64,${logoBuffer.toString("base64")}`;
 

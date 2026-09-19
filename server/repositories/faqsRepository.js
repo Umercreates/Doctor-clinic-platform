@@ -11,3 +11,8 @@ const impl = isDatabaseConfigured() ? pg : demo;
 
 export const listFaqs = (...args) => impl.listFaqs(...args);
 export const listFaqCategories = (...args) => impl.listFaqCategories(...args);
+export const getFaqById = (...args) => impl.getFaqById(...args);
+export const getFaqByKey = (...args) => impl.getFaqByKey(...args);
+export const createFaq = (...args) => impl.createFaq(...args);
+export const updateFaq = (...args) => impl.updateFaq(...args);
+export const deleteFaq = (...args) => impl.deleteFaq(...args);

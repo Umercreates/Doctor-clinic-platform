@@ -2,9 +2,9 @@
  * Clinic profile & site-wide information.
  *
  * Everything marked `isDemo: true` is placeholder content that must be
- * replaced with verified clinic details before launch. This object mirrors the
- * `website_settings` table in `lib/database/schema.sql` so it can be loaded from
- * PostgreSQL in a later phase without changing the components that use it.
+ * replaced with verified clinic details before launch. These values are the
+ * fallback for the `website_settings` table: rows saved from /dashboard/settings
+ * are merged over them (see server/repositories/pg/clinicRepository.js).
  */
 
 export const DEMO_NOTICE = "Demo content — replace with verified information.";

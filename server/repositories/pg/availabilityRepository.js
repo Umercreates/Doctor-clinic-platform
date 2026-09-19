@@ -1,7 +1,7 @@
 /**
  * Availability repository — PostgreSQL implementation.
  * Weekly schedule blocks (doctor_schedules) and one-off exceptions/blocked
- * dates (schedule_exceptions). The slot engine itself arrives in the booking phase.
+ * dates (schedule_exceptions). Slots are computed in server/services/availabilityService.js.
  */
 import { query, queryOne, queryRows } from "@/lib/database";
 import { toHm, toIso } from "./mappers";

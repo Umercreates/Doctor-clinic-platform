@@ -9,31 +9,31 @@ import { Reveal } from "@/components/ui/Reveal";
 import { buildMetadata } from "@/lib/metadata";
 import { buildBreadcrumbJsonLd, buildDoctorJsonLd } from "@/lib/seo";
 import { routes } from "@/lib/routes";
-import { clinic } from "@/data/clinic";
-import { getDoctorBySlug, listDoctors } from "@/server/repositories/doctorsRepository";
+import { getDoctorBySlug } from "@/server/repositories/doctorsRepository";
 import { listServicesForDoctor } from "@/server/repositories/servicesRepository";
+import { getClinicSettings, getPublicDoctors } from "@/server/services/contentService";
 
-/** Pre-render every published doctor profile. */
 /**
- * Every published doctor is pre-rendered from the catalogue; unknown slugs return
- * a real 404 at the router. When profiles come from PostgreSQL (backend phase),
- * switch to `dynamicParams = true` with `revalidate` or on-demand revalidation.
+ * Every active doctor is pre-rendered at build time. Profiles added later are
+ * rendered on first request (dynamicParams) and cached until the dashboard
+ * revalidates them; unknown slugs return a real 404.
  */
-export const dynamicParams = false;
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  const doctors = await listDoctors();
+  const doctors = await getPublicDoctors();
   return doctors.map((doctor) => ({ id: doctor.slug }));
 }
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
-  const doctor = await getDoctorBySlug(id);
+  const [doctor, clinic] = await Promise.all([getDoctorBySlug(id), getClinicSettings()]);
   if (!doctor) notFound();
   return buildMetadata({
     title: `${doctor.name} - ${doctor.role}`,
     description: `${doctor.shortBio} Book an appointment with ${doctor.name} at ${clinic.name} in ${clinic.city}, ${clinic.stateFull}.`,
     path: routes.doctor(doctor.slug),
+    siteName: clinic.name,
     image: doctor.photo.src,
     type: "profile",
   });
@@ -44,12 +44,12 @@ export default async function DoctorPage({ params }) {
   const doctor = await getDoctorBySlug(id);
   if (!doctor) notFound();
 
-  const [services, allDoctors] = await Promise.all([listServicesForDoctor(doctor.id), listDoctors()]);
+  const [clinic, services, allDoctors] = await Promise.all([getClinicSettings(), listServicesForDoctor(doctor.id), getPublicDoctors()]);
   const otherDoctors = allDoctors.filter((d) => d.id !== doctor.id);
 
   return (
     <>
-      <JsonLd data={buildDoctorJsonLd(doctor)} />
+      <JsonLd data={buildDoctorJsonLd(doctor, clinic)} />
       <JsonLd
         data={buildBreadcrumbJsonLd([
           { label: "Doctors", href: routes.doctors },

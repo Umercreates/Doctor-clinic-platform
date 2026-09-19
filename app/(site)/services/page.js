@@ -9,18 +9,23 @@ import { Button } from "@/components/ui/Button";
 import { DemoNotice } from "@/components/ui/DemoNotice";
 import { buildMetadata } from "@/lib/metadata";
 import { routes } from "@/lib/routes";
-import { clinic, appointmentProcess } from "@/data/clinic";
-import { listServices } from "@/server/repositories/servicesRepository";
-import { listDoctors } from "@/server/repositories/doctorsRepository";
+import { appointmentProcess } from "@/data/clinic";
+import { getClinicSettings, getPublicDoctors, getPublicServices } from "@/server/services/contentService";
 
-export const metadata = buildMetadata({
-  title: "Services",
-  description: `General medical services at ${clinic.name} in ${clinic.city}: consultations, preventive check-ups, follow-up care, minor illness and injury care, wellness guidance, and virtual visits.`,
-  path: routes.services,
-});
+export async function generateMetadata() {
+  const [clinic, services] = await Promise.all([getClinicSettings(), getPublicServices()]);
+  const names = services.slice(0, 6).map((svc) => svc.name.toLowerCase());
+  const list = names.length ? `: ${names.join(", ")}` : "";
+  return buildMetadata({
+    title: "Services",
+    description: `General medical services at ${clinic.name} in ${clinic.city}${list}. Book online in a few simple steps.`,
+    path: routes.services,
+    siteName: clinic.name,
+  });
+}
 
 export default async function ServicesPage() {
-  const [services, doctors] = await Promise.all([listServices(), listDoctors()]);
+  const [services, doctors] = await Promise.all([getPublicServices(), getPublicDoctors()]);
 
   return (
     <>
